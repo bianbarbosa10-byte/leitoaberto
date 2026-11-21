@@ -13,6 +13,10 @@ on:
         description: "Reprocessar Silver/Gold mesmo sem dado novo"
         type: boolean
         default: false
+      so_site:
+        description: "So republicar o site com os dados que ja estao no Neon (pula a coleta)"
+        type: boolean
+        default: false
   push:
     branches: [main]
     paths: ["site/**", "pipeline/sql/**", "seeds/**"]
@@ -26,7 +30,8 @@ permissions:
 
 jobs:
   pipeline:
-    if: github.event_name != 'push'   # push so reconstroi o site com os dados que ja estao no Neon
+    # push (ou "so_site") so reconstroi o site com os dados que ja estao no Neon
+    if: github.event_name != 'push' && inputs.so_site != true
     runs-on: ubuntu-latest
     timeout-minutes: 90
     outputs:

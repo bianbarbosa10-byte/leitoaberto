@@ -56,7 +56,7 @@ LISTA = re.compile(r"^(\d\d-\d\d-\d\d)\s+(\d\d:\d\d[AP]M)\s+(\d+)\s+(\S+)$")
 
 
 def _ftp():
-    f = ftplib.FTP(C.FTP_HOST, timeout=120)
+    f = ftplib.FTP(C.FTP_HOST, timeout=60)
     f.login()
     return f
 
@@ -121,7 +121,12 @@ def ingerir_datasus(man, so=None, forcar=False):
     for fonte, (diretorio, prefixo) in C.FONTES.items():
         if so and fonte not in so:
             continue
-        remotos = listar_ftp(diretorio, prefixo)
+        try:
+            remotos = listar_ftp(diretorio, prefixo)
+        except Exception as e:  # FTP fora do ar: segue com as outras fontes; o agendamento tenta de novo amanha
+            print(f"{fonte}: AVISO - FTP nao respondeu ({e.__class__.__name__}); fonte pulada nesta execucao", flush=True)
+            man.setdefault("falhas", {})[fonte] = AGORA()
+            continue
         print(f"{fonte}: {len(remotos)} arquivos no FTP desde {C.INICIO}", flush=True)
         for nome, (tam, modif, comp) in sorted(remotos.items()):
             atual = man["arquivos"].get(nome)
@@ -129,7 +134,11 @@ def ingerir_datasus(man, so=None, forcar=False):
             if not forcar and atual and atual["tamanho"] == tam and atual["modificado"] == modif and parquet.exists():
                 continue
             t0 = time.time()
-            raw = baixar_ftp(diretorio, nome)
+            try:
+                raw = baixar_ftp(diretorio, nome)
+            except Exception as e:
+                print(f"  {nome}: AVISO - download falhou ({e.__class__.__name__}); fica para a proxima execucao", flush=True)
+                continue
             bruto = C.BRONZE / "datasus" / fonte / "raw" / nome
             bruto.parent.mkdir(parents=True, exist_ok=True)
             bruto.write_bytes(raw)
