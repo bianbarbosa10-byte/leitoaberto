@@ -20,3 +20,6 @@ site/public/data/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# MCP local (contem chave de API)
+.mcp.json
