@@ -50,7 +50,7 @@ def baixar(prefixo: str, ignorar_sufixo: tuple = ()) -> int:
     for pagina in _S3.get_paginator("list_objects_v2").paginate(Bucket=C.R2_BUCKET, Prefix=prefixo):
         for obj in pagina.get("Contents", []):
             k = obj["Key"]
-            if ignorar_sufixo and k.endswith(ignorar_sufixo):
+            if ignorar_sufixo and k.lower().endswith(tuple(s.lower() for s in ignorar_sufixo)):
                 continue
             local = C.DATA / k
             etag = obj["ETag"].strip('"')
