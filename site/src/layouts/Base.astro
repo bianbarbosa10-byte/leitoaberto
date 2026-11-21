@@ -21,6 +21,10 @@ const m = meta[0];
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Seguranca: o GitHub Pages nao permite cabecalhos HTTP proprios, entao a politica vai por meta.
+         Scripts so do proprio site; estilos inline sao necessarios para o ECharts. -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; upgrade-insecure-requests" />
+    <meta name="referrer" content="strict-origin-when-cross-origin" />
     <title>{title === "LeitoAberto" ? "LeitoAberto · Dados abertos do SUS no Espírito Santo" : `${title} · LeitoAberto`}</title>
     <meta name="description" content={description} />
     <meta property="og:title" content={title} />
@@ -29,9 +33,7 @@ const m = meta[0];
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600&display=swap" rel="stylesheet" />
-    <script is:inline>
-      try { const t = localStorage.getItem("tema"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
-    </script>
+    <script is:inline src={`${base}/tema.js`}></script>
   </head>
   <body data-base={base}>
     <header class="top" id="topo">

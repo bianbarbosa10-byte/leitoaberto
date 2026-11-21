@@ -50,6 +50,9 @@ function carregarMapa() {
   return geoPronto;
 }
 
+/** Escapa texto antes de montar HTML de tooltip (nomes vem dos dados do DATASUS). */
+const esc = (v: any) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+
 function opcoes(s: Spec): echarts.EChartsCoreOption {
   const ink = css("--text-primary"), ink2 = css("--text-secondary"), muted = css("--text-muted");
   const grid = css("--grid"), axis = css("--axis"), surface = css("--surface-1");
@@ -66,7 +69,7 @@ function opcoes(s: Spec): echarts.EChartsCoreOption {
       textStyle: texto,
       tooltip: {
         ...tooltip, trigger: "item",
-        formatter: (p: any) => `<b>${p.data?.nome ?? p.name}</b><br>${fmt(s.unit, p.data?.value)}`,
+        formatter: (p: any) => `<b>${esc(p.data?.nome ?? p.name)}</b><br>${fmt(s.unit, p.data?.value)}`,
       },
       visualMap: {
         min: Math.min(...vals), max: Math.max(...vals), orient: "horizontal", left: "center", bottom: 0,
@@ -87,7 +90,7 @@ function opcoes(s: Spec): echarts.EChartsCoreOption {
     const vs = s.data!.map((d) => d[2]);
     return {
       textStyle: texto,
-      tooltip: { ...tooltip, formatter: (p: any) => `${s.y![p.value[1]]} → ${s.x![p.value[0]]}<br><b>${fmt(s.unit, p.value[2])}</b>` },
+      tooltip: { ...tooltip, formatter: (p: any) => `${esc(s.y![p.value[1]])} → ${esc(s.x![p.value[0]])}<br><b>${fmt(s.unit, p.value[2])}</b>` },
       grid: { left: 110, right: 16, top: 30, bottom: 60 },
       xAxis: { type: "category", data: s.x, position: "top", axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: ink2 } },
       yAxis: { type: "category", data: s.y, inverse: true, axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: ink2 } },

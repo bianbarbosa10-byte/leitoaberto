@@ -43,16 +43,17 @@ def executar():
         for t in tabelas:
             d = _descricao(t)
             if d:
-                pg.execute(f"comment on table gold_novo.{t} is '{d}'")
+                pg.execute(f"comment on table gold_novo.{t} is '{d.replace(chr(39), chr(39) * 2)}'")
         pg.execute("drop schema if exists gold_antigo cascade")
         if pg.execute("select 1 from information_schema.schemata where schema_name = 'gold'").fetchone():
             pg.execute("alter schema gold rename to gold_antigo")
         pg.execute("alter schema gold_novo rename to gold")
         pg.execute("drop schema if exists gold_antigo cascade")
+        # papel so-leitura para Power BI e afins (criado em SQL, fora do neon_superuser; ver docs/seguranca.md)
         pg.execute("""do $$ begin
-                        if exists (select 1 from pg_roles where rolname = 'leitoaberto_leitura') then
-                          grant usage on schema gold to leitoaberto_leitura;
-                          grant select on all tables in schema gold to leitoaberto_leitura;
+                        if exists (select 1 from pg_roles where rolname = 'leitoaberto_leitor') then
+                          grant usage on schema gold to leitoaberto_leitor;
+                          grant select on all tables in schema gold to leitoaberto_leitor;
                         end if; end $$""")
     print(f"publish: {len(tabelas)} tabelas publicadas no schema gold do Neon", flush=True)
     return True

@@ -24,3 +24,7 @@ desktop.ini
 # MCP local (contem chave de API)
 .mcp.json
 .claude/settings.local.json
+
+# artefatos de teste do navegador
+.playwright-mcp/
+.vscode/

@@ -27,9 +27,15 @@ O site ficará em `https://<seu-usuario>.github.io/leitoaberto/`.
 1. Crie uma conta em https://neon.tech (plano Free).
 2. Crie o projeto `leitoaberto`, região **AWS São Paulo (sa-east-1)**, banco `leitoaberto`.
 3. Copie a *connection string* (`postgresql://...?sslmode=require`).
-4. (Opcional, para o Power BI) Crie um usuário só de leitura no SQL Editor do Neon:
+4. (Opcional, para o Power BI) Crie um usuário só de leitura **pelo SQL Editor** do Neon, conectado com o
+   usuário dono. Não crie pelo painel "Roles" nem pela API: o Neon coloca esses papéis em `neon_superuser`
+   e eles passam a poder gravar (ver [seguranca.md](seguranca.md)).
    ```sql
-   create role leitoaberto_leitura login password 'troque-esta-senha';
+   create role leitoaberto_leitor login nocreatedb nocreaterole nobypassrls connection limit 5
+     password 'senha-longa-aleatoria';
+   alter role leitoaberto_leitor set default_transaction_read_only = on;
+   alter role leitoaberto_leitor set statement_timeout = '60s';
+   grant connect on database leitoaberto to leitoaberto_leitor;
    ```
    O pipeline já dá `select` no schema `gold` para esse usuário a cada carga.
 
@@ -60,5 +66,5 @@ Opção mais rápida: rodar a primeira carga no seu computador, com o `.env` pre
 ## 6. Power BI
 
 *Obter dados → Banco de dados PostgreSQL* → servidor = host do Neon, banco = `leitoaberto`, usuário
-`leitoaberto_leitura`. Use as tabelas do schema `gold`. As medidas continuam as mesmas do PIH: somar
+`leitoaberto_leitor`. Use as tabelas do schema `gold`. As medidas continuam as mesmas do PIH: somar
 numerador e denominador antes de dividir.

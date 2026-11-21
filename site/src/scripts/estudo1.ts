@@ -72,7 +72,7 @@ function montarFiltros() {
   const anos = [...new Set(MESES.map((m) => m.competencia.slice(0, 4)))].sort().reverse();
   selAno.innerHTML = anos.map((a) => `<option value="${a}">${a}</option>`).join("");
   selHosp.innerHTML = `<option value="">Todos os estabelecimentos</option>` +
-    linhas(IDX.hospitais).map((h) => `<option value="${h.cnes}">${esc(h.hospital)} · ${esc(h.municipio)}</option>`).join("");
+    linhas(IDX.hospitais).map((h) => `<option value="${esc(h.cnes)}">${esc(h.hospital)} · ${esc(h.municipio)}</option>`).join("");
   const preencherMeses = () => {
     const ms = MESES.filter((m) => m.competencia.startsWith(estado.ano));
     selMes.innerHTML = `<option value="">Todos os meses</option>` + ms.map((m) =>
@@ -168,7 +168,7 @@ async function unidades() {
     tb.innerHTML = `<thead><tr><th>Hospital</th><th>Município</th><th>Região</th><th>Natureza</th><th class="n">Leitos SUS</th><th class="n">Saídas</th>
       <th class="n">Ocupação</th><th class="n">Permanência</th><th class="n">Giro/mês</th><th class="n">Mort. ≥48h</th><th class="n">Valor aprovado</th></tr></thead><tbody>` +
       hs.map((h: any) => { const H = HOSP[h.cnes] ?? {}; const oc = razao(h.pd, h.ld), pe = razao(h.pdc, h.s), gi = razao(h.s, h.lo), mo = razao(h.o48, h.s);
-        return `<tr><td><a href="?ano=${estado.ano}${estado.mes ? `&mes=${estado.mes}` : ""}&cnes=${h.cnes}" data-cnes="${h.cnes}">${esc(H.hospital ?? h.cnes)}</a></td><td>${esc(H.municipio)}</td><td>${esc(H.regiao_saude)}</td><td>${esc(H.grupo_natureza)}</td>
+        return `<tr><td><a href="?ano=${estado.ano}${estado.mes ? `&mes=${estado.mes}` : ""}&cnes=${esc(h.cnes)}" data-cnes="${esc(h.cnes)}">${esc(H.hospital ?? h.cnes)}</a></td><td>${esc(H.municipio)}</td><td>${esc(H.regiao_saude)}</td><td>${esc(H.grupo_natureza)}</td>
           <td class="n" data-v="${h.lo / h.n}">${dec(h.lo / h.n, 0)}</td><td class="n" data-v="${h.s}">${int(h.s)}</td><td class="n" data-v="${oc ?? -1}">${pct(oc)}</td>
           <td class="n" data-v="${pe ?? -1}">${dec(pe)}</td><td class="n" data-v="${gi ?? -1}">${dec(gi)}</td><td class="n" data-v="${mo ?? -1}">${pct(mo, 2)}</td><td class="n" data-v="${h.v}">${brl(h.v)}</td></tr>`; }).join("") + "</tbody>";
     tb.querySelectorAll<HTMLAnchorElement>("a[data-cnes]").forEach((a) => a.addEventListener("click", (e) => {
@@ -183,7 +183,7 @@ async function unidades() {
       rs.map((r) => { const oc = razao(r.pacientes_dia, r.leitos_dia), pe = razao(r.pacientes_dia_competencia, r.saidas), gi = razao(r.saidas, r.leitos_sus_operacionais), mo = razao(r.obitos_48h_mais, r.saidas);
         return `<tr><td data-v="${r.competencia}">${mesAno(r.competencia)}</td><td class="n" data-v="${r.leitos_sus_operacionais}">${int(r.leitos_sus_operacionais)}</td><td class="n" data-v="${r.saidas}">${int(r.saidas)}</td>
           <td class="n" data-v="${oc ?? -1}">${pct(oc)}</td><td class="n" data-v="${pe ?? -1}">${dec(pe)}</td><td class="n" data-v="${gi ?? -1}">${dec(gi)}</td>
-          <td class="n" data-v="${mo ?? -1}">${pct(mo, 2)}</td><td class="n" data-v="${r.valor_total_aih}">${brl(r.valor_total_aih)}</td><td>${st[r.competencia]}</td></tr>`; }).join("") + "</tbody>";
+          <td class="n" data-v="${mo ?? -1}">${pct(mo, 2)}</td><td class="n" data-v="${r.valor_total_aih}">${brl(r.valor_total_aih)}</td><td>${esc(st[r.competencia])}</td></tr>`; }).join("") + "</tbody>";
   }
   delete tb.dataset.ordenada;
   tb.querySelectorAll("th").forEach((th) => delete (th as HTMLElement).dataset.sort);
@@ -235,7 +235,7 @@ function desenharTabelaProc() {
   tb.innerHTML = `<thead><tr><th>Código</th><th>Procedimento</th><th>Grupo</th><th>Complexidade</th><th class="n">AIH</th><th class="n">Saídas</th>
     <th class="n">Permanência</th><th class="n">Óbitos</th><th class="n">Mortalidade</th><th class="n">Valor aprovado</th><th class="n">Valor médio</th></tr></thead><tbody>` +
     filtrados.slice(0, LIM).map((p: any) => { const P = PROC[p.proc_rea] ?? {}; const pe = razao(p.dias, p.saidas), mo = razao(p.obitos, p.saidas), vm = razao(p.valor, p.aih);
-      return `<tr><td data-v="${p.proc_rea}"><code>${p.proc_rea}</code></td><td style="white-space:normal;min-width:260px">${esc(P.procedimento ?? "")}</td><td>${esc(((g) => g.charAt(0).toUpperCase() + g.slice(1))((P.grupo ?? "").replace("Procedimentos ", "")))}</td>
+      return `<tr><td data-v="${esc(p.proc_rea)}"><code>${esc(p.proc_rea)}</code></td><td style="white-space:normal;min-width:260px">${esc(P.procedimento ?? "")}</td><td>${esc(((g) => g.charAt(0).toUpperCase() + g.slice(1))((P.grupo ?? "").replace("Procedimentos ", "")))}</td>
         <td>${esc(P.complexidade ?? "")}</td><td class="n" data-v="${p.aih}">${int(p.aih)}</td><td class="n" data-v="${p.saidas}">${int(p.saidas)}</td>
         <td class="n" data-v="${pe ?? -1}">${dec(pe)}</td><td class="n" data-v="${p.obitos}">${int(p.obitos)}</td><td class="n" data-v="${mo ?? -1}">${pct(mo, 1)}</td>
         <td class="n" data-v="${p.valor}">${brl(p.valor)}</td><td class="n" data-v="${vm ?? -1}">${brl(vm)}</td></tr>`; }).join("") + "</tbody>";
