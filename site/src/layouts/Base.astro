@@ -1,0 +1,62 @@
+---
+import "../styles/global.css";
+import meta from "../data/meta.json";
+import { dataHora } from "../lib/fmt";
+
+interface Props { title: string; description?: string; }
+const { title, description = "Dados abertos sobre leitos, internações e acesso hospitalar no SUS do Espírito Santo." } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+const atual = Astro.url.pathname.replace(base, "").replace(/\/$/, "") || "/";
+const links = [
+  ["/", "Início"],
+  ["/estudo-1", "Eficiência"],
+  ["/estudo-2", "Vazio e fluxo"],
+  ["/estudo-3", "Capacidade"],
+  ["/metodologia", "Dados e método"],
+  ["/sobre", "Sobre"],
+];
+const m = meta[0];
+---
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title === "LeitoAberto" ? title : `${title} · LeitoAberto`}</title>
+    <meta name="description" content={description} />
+    <link rel="icon" href={`${base}/favicon.svg`} type="image/svg+xml" />
+    <script is:inline>
+      try { const t = localStorage.getItem("tema"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+    </script>
+  </head>
+  <body data-base={base}>
+    <header class="top">
+      <div class="wrap">
+        <a class="brand" href={`${base}/`}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 18v-6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6M3 18h18M3 18v2M21 18v2M7 10V7a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v3"/></svg>
+          LeitoAberto
+        </a>
+        <nav class="menu" aria-label="Principal">
+          {links.map(([href, rotulo]) => (
+            <a href={`${base}${href}`} aria-current={atual === href ? "page" : undefined}>{rotulo}</a>
+          ))}
+        </nav>
+        <button class="theme-btn" id="tema" type="button" aria-label="Alternar tema claro/escuro">◐</button>
+      </div>
+    </header>
+    <main>
+      <div class="wrap">
+        <slot />
+      </div>
+    </main>
+    <footer>
+      <div class="wrap">
+        <span>Fontes: DATASUS (SIH/SUS, CNES) e IBGE. Atualização automática todo dia 10.</span>
+        <span>Última atualização: {dataHora(m.atualizado_em)} · SIH até {m.ultima_competencia_sih} · CNES até {m.ultima_competencia_cnes}</span>
+      </div>
+    </footer>
+    <script>
+      import "../scripts/app";
+    </script>
+  </body>
+</html>

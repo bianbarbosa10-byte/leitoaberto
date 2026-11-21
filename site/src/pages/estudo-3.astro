@@ -1,0 +1,136 @@
+---
+import Base from "../layouts/Base.astro";
+import Kpi from "../components/Kpi.astro";
+import Chart from "../components/Chart.astro";
+import { REGIOES, slotRegiao, E3_REG, E3_MUN, E3_TIPO, E3_EQUIP, E3_SERV, ULT_CNES, soma } from "../lib/dados";
+import { int, pct, dec, mesAno } from "../lib/fmt";
+
+const ult = E3_REG.filter((r) => r.competencia === ULT_CNES);
+const pop = soma(ult, "populacao");
+const lsus = soma(ult, "leitos_internacao_sus"), lex = soma(ult, "leitos_internacao_existentes");
+const usus = soma(ult, "uti_sus"), uex = soma(ult, "uti_existentes");
+const deficit = Math.round((pop * 2.5) / 1000 - lsus);
+
+const porRegiao = (k: string) => REGIOES.map((g) => ult.find((r) => r.regiao_saude === g)?.[k] ?? null);
+const leitosReg = {
+  kind: "bar", unit: "dec2", x: REGIOES, ref: { value: 2.5, label: "parâmetro 2,5" },
+  series: [
+    { name: "Leitos SUS / 1.000 hab.", slot: 0, data: porRegiao("leitos_sus_1000hab") },
+    { name: "Leitos existentes / 1.000 hab.", slot: 2, data: porRegiao("leitos_existentes_1000hab") },
+  ],
+};
+const utiReg = {
+  kind: "bar", unit: "dec2", x: REGIOES,
+  series: [
+    { name: "UTI SUS / 10 mil hab.", slot: 0, data: porRegiao("uti_sus_10milhab") },
+    { name: "UTI existentes / 10 mil hab.", slot: 2, data: porRegiao("uti_existentes_10milhab") },
+  ],
+};
+const mapa = { kind: "map", unit: "dec2", values: E3_MUN.map((r) => ({ cod: r.cod_mun6, nome: r.municipio, value: r.leitos_sus_1000hab })) };
+
+const comps = [...new Set(E3_REG.map((r) => r.competencia))].sort();
+const evol = {
+  kind: "line", unit: "int", x: comps.map(mesAno), min0: false,
+  series: REGIOES.map((g) => ({ name: g, slot: slotRegiao(g), data: comps.map((c) => E3_REG.find((r) => r.competencia === c && r.regiao_saude === g)?.leitos_internacao_sus ?? null) })),
+};
+const tipos = [...new Set(E3_TIPO.map((r) => r.tipo_leito).filter(Boolean))];
+const tipoGraf = {
+  kind: "bar", unit: "int", stack: true, x: tipos,
+  series: REGIOES.map((g) => ({ name: g, slot: slotRegiao(g), data: tipos.map((t) => E3_TIPO.find((r) => r.regiao_saude === g && r.tipo_leito === t)?.leitos_sus ?? 0) })),
+};
+const equipamentos = [...new Set(E3_EQUIP.map((r) => r.equipamento))];
+const servicos = [...new Set(E3_SERV.map((r) => r.servico))].sort();
+---
+<Base title="Estudo 3 · Capacidade instalada" description="Leitos, UTI, equipamentos e serviços especializados do SUS por região de saúde do Espírito Santo.">
+  <p class="muted">Estudo 3 · CNES {mesAno(ULT_CNES)}</p>
+  <h1>Capacidade instalada do SUS</h1>
+  <p class="lead">Quantos leitos, UTIs, equipamentos de imagem e serviços especializados existem em cada região de saúde, quanto
+    deles está disponível ao SUS e como isso se compara à população atendida.</p>
+
+  <section class="grid g4" style="margin-top:1.25rem">
+    <Kpi label="Leitos SUS de internação / 1.000 hab." value={dec((1000 * lsus) / pop, 2)} note={`${int(lsus)} leitos SUS de ${int(lex)} existentes`} />
+    <Kpi label="UTI SUS / 10 mil hab." value={dec((10000 * usus) / pop, 2)} note={`${int(usus)} leitos de UTI SUS de ${int(uex)}`} />
+    <Kpi label="Participação do SUS nos leitos" value={pct(lsus / lex)} note={`UTI: ${pct(usus / uex)}`} />
+    <Kpi label="Leitos SUS para chegar a 2,5/1.000" value={deficit > 0 ? int(deficit) : "0"} note="Parâmetro da Portaria GM/MS 1.631/2015" />
+  </section>
+
+  <section class="grid g2" style="margin-top:16px">
+    <div class="card">
+      <h3>Leitos SUS de internação por 1.000 habitantes</h3>
+      <div class="sub">Por município, CNES {mesAno(ULT_CNES)}. Municípios sem hospital aparecem com zero.</div>
+      <Chart spec={mapa} size="map" label="Mapa de leitos SUS por mil habitantes por município" />
+    </div>
+    <div class="card">
+      <h3>Leitos por 1.000 habitantes, por região</h3>
+      <div class="sub">Linha tracejada = parâmetro mínimo de 2,5 leitos/1.000 hab.</div>
+      <Chart spec={leitosReg} label="Leitos SUS e existentes por mil habitantes por região" />
+      <h3 style="margin-top:1rem">UTI por 10 mil habitantes</h3>
+      <Chart spec={utiReg} label="Leitos de UTI SUS e existentes por 10 mil habitantes por região" />
+    </div>
+  </section>
+
+  <section class="grid g2">
+    <div>
+      <h2>Evolução dos leitos SUS de internação</h2>
+      <div class="card"><Chart spec={evol} label="Leitos SUS de internação por região ao longo do tempo" /></div>
+    </div>
+    <div>
+      <h2>Leitos SUS por tipo</h2>
+      <div class="card"><Chart spec={tipoGraf} label="Leitos SUS por tipo de leito e região" /></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Indicadores por região</h2>
+    <div class="table-wrap">
+      <table data-sortable>
+        <thead><tr><th>Região</th><th class="n">População</th><th class="n">Leitos SUS</th><th class="n">Leitos SUS/1.000</th>
+          <th class="n">% SUS</th><th class="n">UTI SUS</th><th class="n">UTI SUS/10 mil</th><th class="n">% SUS UTI</th><th class="n">Déficit vs 2,5</th></tr></thead>
+        <tbody>{ult.map((r) => (
+          <tr><td>{r.regiao_saude}</td><td class="n" data-v={r.populacao}>{int(r.populacao)}</td>
+            <td class="n" data-v={r.leitos_internacao_sus}>{int(r.leitos_internacao_sus)}</td>
+            <td class="n" data-v={r.leitos_sus_1000hab}>{dec(r.leitos_sus_1000hab, 2)}</td>
+            <td class="n" data-v={r.pct_sus_internacao}>{pct(r.pct_sus_internacao)}</td>
+            <td class="n" data-v={r.uti_sus}>{int(r.uti_sus)}</td>
+            <td class="n" data-v={r.uti_sus_10milhab}>{dec(r.uti_sus_10milhab, 2)}</td>
+            <td class="n" data-v={r.pct_sus_uti}>{pct(r.pct_sus_uti)}</td>
+            <td class="n" data-v={r.deficit_sus_vs_2_5_por_mil}>{int(r.deficit_sus_vs_2_5_por_mil)}</td></tr>
+        ))}</tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Equipamentos de diagnóstico</h2>
+    <p class="muted">Necessidade pelo parâmetro de habitantes por equipamento (tomógrafo 100 mil, ressonância 500 mil, mamógrafo 240 mil),
+      comparada aos equipamentos disponíveis ao SUS.</p>
+    <div class="table-wrap">
+      <table data-sortable>
+        <thead><tr><th>Equipamento</th><th>Região</th><th class="n">Existentes</th><th class="n">Em uso</th><th class="n">Disponíveis SUS</th>
+          <th class="n">SUS/100 mil hab.</th><th class="n">Necessidade (parâmetro)</th></tr></thead>
+        <tbody>{equipamentos.flatMap((e) => REGIOES.map((g) => E3_EQUIP.find((r) => r.equipamento === e && r.regiao_saude === g)).filter(Boolean).map((r: any) => (
+          <tr><td>{r.equipamento}</td><td>{r.regiao_saude}</td><td class="n" data-v={r.existentes}>{int(r.existentes)}</td>
+            <td class="n" data-v={r.em_uso}>{int(r.em_uso)}</td><td class="n" data-v={r.disponiveis_sus}>{int(r.disponiveis_sus)}</td>
+            <td class="n" data-v={r.sus_100milhab}>{dec(r.sus_100milhab, 2)}</td>
+            <td class="n" data-v={r.necessidade_parametro ?? -1}>{r.necessidade_parametro == null ? "–" : dec(r.necessidade_parametro)}</td></tr>
+        )))}</tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Serviços especializados</h2>
+    <p class="muted">Estabelecimentos que oferecem o serviço ao SUS (ambulatorial ou hospitalar) · entre parênteses, o total com o serviço.</p>
+    <div class="table-wrap">
+      <table data-sortable>
+        <thead><tr><th>Serviço</th>{REGIOES.map((g) => <th class="n">{g}</th>)}</tr></thead>
+        <tbody>{servicos.map((s) => (
+          <tr><td>{s}</td>{REGIOES.map((g) => {
+            const r = E3_SERV.find((x) => x.servico === s && x.regiao_saude === g);
+            return <td class="n" data-v={r?.estabelecimentos_sus ?? 0}>{r ? `${int(r.estabelecimentos_sus)} (${int(r.estabelecimentos)})` : "0"}</td>;
+          })}</tr>
+        ))}</tbody>
+      </table>
+    </div>
+  </section>
+</Base>

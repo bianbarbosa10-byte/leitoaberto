@@ -1,0 +1,170 @@
+---
+import Base from "../layouts/Base.astro";
+import Kpi from "../components/Kpi.astro";
+import Chart from "../components/Chart.astro";
+import FiltroAno from "../components/FiltroAno.astro";
+import { ANOS, REGIOES, slotRegiao, E2_REG, E2_MUN, E2_FLUXO_REG, E2_FLUXO_MUN, E2_PERFIL, E2_PROC, E2_MENSAL, soma, razao } from "../lib/dados";
+import { int, pct, dec, mesAno } from "../lib/fmt";
+
+const porAno = ANOS.map(({ ano }) => {
+  const reg = E2_REG.filter((r) => String(r.ano) === ano);
+  const mun = E2_MUN.filter((r) => String(r.ano) === ano);
+  const fr = E2_FLUXO_REG.filter((r) => String(r.ano) === ano);
+  const residentes = soma(reg, "residentes_internados");
+  const vazio = mun.filter((r) => r.sem_atendimento_hospitalar).sort((a, b) => b.populacao - a.populacao);
+  const cpx = E2_PERFIL.filter((r) => String(r.ano) === ano && r.dimensao === "complexidade");
+  const sub = E2_PERFIL.filter((r) => String(r.ano) === ano && r.dimensao === "subgrupo")
+    .sort((a, b) => b.fora_da_regiao - a.fora_da_regiao).slice(0, 15);
+  const distPond = razao(mun.reduce((s, r) => s + (r.dist_media_km ?? 0) * r.internacoes, 0), soma(mun, "internacoes"));
+  return {
+    ano,
+    kpi: {
+      evasao: 1 - (razao(soma(reg, "na_propria_regiao"), residentes) ?? 0),
+      evasaoMun: 1 - (razao(soma(mun, "no_proprio_municipio"), soma(mun, "internacoes")) ?? 0),
+      dist: distPond,
+      vazio: vazio.length,
+      popVazio: soma(vazio, "populacao"),
+      foraEs: soma(reg, "de_fora_do_es"),
+    },
+    reg, vazio,
+    fluxos: E2_FLUXO_MUN.filter((r) => String(r.ano) === ano && r.entre_regioes).slice(0, 25),
+    proc: E2_PROC.filter((r) => String(r.ano) === ano).slice(0, 15),
+    mapa: {
+      kind: "map", unit: "pct",
+      values: mun.map((r) => ({ cod: r.cod_mun6, nome: r.municipio, value: r.evasao_regional })),
+    },
+    regioes: {
+      kind: "bar", unit: "pct", x: REGIOES,
+      series: [
+        { name: "Autossuficiência", slot: 0, data: REGIOES.map((g) => reg.find((r) => r.regiao_saude === g)?.autossuficiencia ?? null) },
+        { name: "Invasão", slot: 1, data: REGIOES.map((g) => reg.find((r) => r.regiao_saude === g)?.invasao ?? null) },
+      ],
+    },
+    matriz: {
+      kind: "heatmap", unit: "int", x: REGIOES, y: REGIOES,
+      data: REGIOES.flatMap((o, yi) => REGIOES.map((d, xi) => [xi, yi, fr.find((r) => r.regiao_residencia === o && r.regiao_internacao === d)?.internacoes ?? 0])),
+    },
+    complexidade: {
+      kind: "bar", unit: "pct", x: REGIOES,
+      series: ["Média", "Alta"].map((c, i) => ({
+        name: `${c} complexidade`, slot: i + 2,
+        data: REGIOES.map((g) => cpx.find((r) => r.regiao_saude === g && r.categoria === c)?.evasao ?? null),
+      })),
+    },
+    subgrupo: {
+      kind: "bar", unit: "int", horizontal: true, x: sub.map((r) => `${r.categoria} (${r.regiao_saude})`),
+      series: [{ name: "Internações fora da região", data: sub.map((r) => r.fora_da_regiao) }],
+    },
+  };
+});
+
+const comps = [...new Set(E2_MENSAL.map((r) => r.competencia))].sort();
+const mensal = {
+  kind: "line", unit: "pct", x: comps.map(mesAno),
+  series: REGIOES.map((g) => ({ name: g, slot: slotRegiao(g), data: comps.map((c) => E2_MENSAL.find((r) => r.competencia === c && r.regiao_saude === g)?.evasao ?? null) })),
+};
+---
+<Base title="Estudo 2 · Vazio assistencial e fluxo" description="Evasão, invasão, autossuficiência e fluxos de internação entre municípios e regiões de saúde do ES.">
+  <p class="muted">Estudo 2</p>
+  <h1>Vazio assistencial e fluxo de pacientes</h1>
+  <p class="lead">Onde os capixabas se internam pelo SUS? Quantos precisam sair do seu município ou da sua região de saúde,
+    a que distância, para quais procedimentos, e quais municípios não têm nenhum atendimento hospitalar.</p>
+
+  <FiltroAno nota="Internações principais (AIH tipo 1), competência de processamento." />
+
+  {porAno.map((a) => (
+    <div data-year={a.ano}>
+      <section class="grid g4">
+        <Kpi label="Internações fora da região de saúde" value={pct(a.kpi.evasao)} note={`Fora do município: ${pct(a.kpi.evasaoMun)}`} />
+        <Kpi label="Distância média até a internação" value={`${dec(a.kpi.dist)} km`} note="Linha reta entre as sedes municipais" />
+        <Kpi label="Municípios sem atendimento hospitalar SUS" value={int(a.kpi.vazio)} note={`${int(a.kpi.popVazio)} habitantes`} />
+        <Kpi label="Internações de residentes de outras UFs" value={int(a.kpi.foraEs)} note="Atendidos em hospitais do ES" />
+      </section>
+    </div>
+  ))}
+
+  <section class="grid g2" style="margin-top:16px">
+    <div class="card">
+      <h3>Evasão regional por município de residência</h3>
+      <div class="sub">% das internações de residentes feitas fora da sua região de saúde</div>
+      <Chart porAno={Object.fromEntries(porAno.map((a) => [a.ano, a.mapa]))} size="map" label="Mapa da evasão regional por município" />
+    </div>
+    <div class="card">
+      <h3>Fluxo entre regiões de saúde</h3>
+      <div class="sub">Linhas: região de residência · Colunas: região onde se internou</div>
+      <Chart porAno={Object.fromEntries(porAno.map((a) => [a.ano, a.matriz]))} size="map" label="Matriz de internações por região de residência e de internação" />
+    </div>
+  </section>
+
+  <section class="grid g2" style="margin-top:16px">
+    <div class="card">
+      <h3>Autossuficiência e invasão por região</h3>
+      <div class="sub">Autossuficiência = residentes internados na própria região · Invasão = internações da região vindas de fora</div>
+      <Chart porAno={Object.fromEntries(porAno.map((a) => [a.ano, a.regioes]))} label="Autossuficiência e invasão por região de saúde" />
+    </div>
+    <div class="card">
+      <h3>Evasão por complexidade</h3>
+      <div class="sub">A alta complexidade é a que mais exige deslocamento</div>
+      <Chart porAno={Object.fromEntries(porAno.map((a) => [a.ano, a.complexidade]))} label="Evasão regional por complexidade" />
+    </div>
+  </section>
+
+  <section>
+    <h2>Evasão regional mês a mês</h2>
+    <div class="card"><Chart spec={mensal} label="Evasão regional mensal por região de saúde" /></div>
+  </section>
+
+  <section class="grid g2">
+    <div>
+      <h2>Municípios em vazio assistencial</h2>
+      <p class="muted">Nenhuma internação SUS realizada no município durante o ano.</p>
+      {porAno.map((a) => (
+        <div data-year={a.ano} class="table-wrap scroll-y">
+          <table data-sortable>
+            <thead><tr><th>Município</th><th>Região</th><th class="n">População</th><th class="n">Internações</th><th class="n">Dist. média</th></tr></thead>
+            <tbody>{a.vazio.map((r) => (
+              <tr><td>{r.municipio}</td><td>{r.regiao_saude}</td><td class="n" data-v={r.populacao}>{int(r.populacao)}</td>
+                <td class="n" data-v={r.internacoes}>{int(r.internacoes)}</td><td class="n" data-v={r.dist_media_km}>{dec(r.dist_media_km)} km</td></tr>
+            ))}</tbody>
+          </table>
+        </div>
+      ))}
+    </div>
+    <div>
+      <h2>Subgrupos que mais saem da região</h2>
+      <p class="muted">Internações fora da região de residência, por subgrupo SIGTAP</p>
+      <div class="card"><Chart porAno={Object.fromEntries(porAno.map((a) => [a.ano, a.subgrupo]))} size="tall" label="Subgrupos de procedimento com mais internações fora da região" /></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Maiores fluxos entre regiões</h2>
+    {porAno.map((a) => (
+      <div data-year={a.ano} class="table-wrap scroll-y">
+        <table data-sortable>
+          <thead><tr><th>Origem</th><th>Região de origem</th><th>Destino</th><th>Região de destino</th><th class="n">Internações</th><th class="n">Distância</th></tr></thead>
+          <tbody>{a.fluxos.map((r) => (
+            <tr><td>{r.origem}</td><td>{r.regiao_origem}</td><td>{r.destino}</td><td>{r.regiao_destino}</td>
+              <td class="n" data-v={r.internacoes}>{int(r.internacoes)}</td><td class="n" data-v={r.dist_km}>{dec(r.dist_km)} km</td></tr>
+          ))}</tbody>
+        </table>
+      </div>
+    ))}
+  </section>
+
+  <section>
+    <h2>Procedimentos que mais levam pacientes para fora da região</h2>
+    {porAno.map((a) => (
+      <div data-year={a.ano} class="table-wrap">
+        <table data-sortable>
+          <thead><tr><th>Procedimento</th><th>Complexidade</th><th class="n">Fora da região</th><th class="n">Total</th><th class="n">% fora</th><th class="n">Dist. média</th></tr></thead>
+          <tbody>{a.proc.map((r) => (
+            <tr><td>{r.procedimento}</td><td>{r.complexidade}</td><td class="n" data-v={r.fora_da_regiao}>{int(r.fora_da_regiao)}</td>
+              <td class="n" data-v={r.internacoes}>{int(r.internacoes)}</td><td class="n" data-v={r.pct_fora_da_regiao}>{pct(r.pct_fora_da_regiao)}</td>
+              <td class="n" data-v={r.dist_media_fora_km}>{dec(r.dist_media_fora_km)} km</td></tr>
+          ))}</tbody>
+        </table>
+      </div>
+    ))}
+  </section>
+</Base>

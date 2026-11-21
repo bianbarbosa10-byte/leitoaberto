@@ -1,0 +1,88 @@
+---
+import Base from "../layouts/Base.astro";
+import { M } from "../lib/dados";
+import { int, dataHora } from "../lib/fmt";
+
+const tabelas = [
+  ["dim_calendario", "1 linha por mês, com completude estimada do SIH e status Consolidado/Preliminar"],
+  ["dim_hospital", "Hospitais com AIH ou leitos: nome, município, região, natureza jurídica, porte"],
+  ["dim_municipio", "78 municípios com região de saúde, coordenadas e população"],
+  ["populacao", "População IBGE por município e ano (usa o ano disponível mais recente)"],
+  ["e1_hospital_mes", "Estudo 1: leitos, pacientes-dia, saídas, óbitos e taxas por hospital × mês"],
+  ["e1_perfil_internacao", "Estudo 1: internações por caráter, faixa etária e complexidade"],
+  ["e2_municipio_ano", "Estudo 2: evasão, invasão, distância e vazio assistencial por município"],
+  ["e2_regiao_ano", "Estudo 2: autossuficiência, invasão, ocupação e leitos ociosos por região"],
+  ["e2_fluxo_regiao_ano / e2_fluxo_municipio_ano", "Estudo 2: matrizes de fluxo origem → destino"],
+  ["e2_evasao_perfil_ano / e2_procedimento_evasao_ano / e2_evasao_mensal", "Estudo 2: evasão por perfil, procedimento e mês"],
+  ["e3_leitos_municipio_mes / e3_leitos_regiao_mes / e3_leitos_tipo_regiao_mes", "Estudo 3: leitos e UTI por habitante, % SUS, déficit"],
+  ["e3_equipamentos_regiao_mes / e3_equipamentos_municipio_mes", "Estudo 3: equipamentos e necessidade por parâmetro"],
+  ["e3_servicos_regiao_mes", "Estudo 3: estabelecimentos com serviços especializados"],
+  ["meta_atualizacao", "Data da carga e últimas competências disponíveis"],
+];
+---
+<Base title="Dados e método" description="Arquitetura de dados, camadas Bronze/Silver/Gold, fontes e fórmulas do LeitoAberto.">
+  <h1>Dados e método</h1>
+  <p class="lead">Todo o conteúdo do site sai de um pipeline de engenharia de dados aberto, versionado no GitHub e executado
+    automaticamente na nuvem, sem custo de infraestrutura.</p>
+
+  <h2>Arquitetura</h2>
+  <div class="flow">
+    <div class="step src"><b>1. Fontes</b><small>FTP do DATASUS: SIH-RD (AIH reduzida), CNES LT, EQ, SR e ST do ES · IBGE: SIDRA 6579, localidades e malha · API de dados abertos do CNES</small></div>
+    <div class="step bronze"><b>2. Bronze</b><small>.dbc original e cópia em Parquet (tudo texto + metadados de carga). Cloudflare R2. Incremental: só baixa arquivo novo ou republicado.</small></div>
+    <div class="step silver"><b>3. Silver</b><small>DuckDB + SQL: tipagem, datas, códigos traduzidos, categorias dos estudos, regiões de saúde. Parquet no R2.</small></div>
+    <div class="step gold"><b>4. Gold</b><small>Indicadores dos 3 estudos, modelo estrela. Parquet no R2 e PostgreSQL no Neon (troca atômica de schema).</small></div>
+    <div class="step out"><b>5. Consumo</b><small>Site estático (Astro + ECharts) no GitHub Pages e painéis Power BI conectados ao Neon.</small></div>
+  </div>
+
+  <h2>Atualização automática</h2>
+  <p>Um workflow do <b>GitHub Actions</b> roda todo <b>dia 10 às 06:00</b> (Brasília) e tenta de novo nos dias 11 a 15,
+    porque o DATASUS costuma atrasar a publicação. A cada execução o pipeline compara o tamanho e a data de cada arquivo no FTP com o
+    manifesto da Bronze: só o que é novo ou foi republicado é baixado (o DATASUS republica competências antigas do SIH quando chegam AIH
+    atrasadas). Se nada mudou, a execução termina em cerca de um minuto, sem reconstruir o site.</p>
+  <p class="muted">Carga atual: {int(M.aih_carregadas)} AIH desde {M.competencia_inicial} · atualizado em {dataHora(M.atualizado_em)} ·
+    último mês consolidado do SIH: {M.ultima_competencia_consolidada}.</p>
+
+  <h2>Tabelas da camada Gold</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Tabela (schema gold)</th><th>Conteúdo</th></tr></thead>
+      <tbody>{tabelas.map(([t, d]) => <tr><td><code>{t}</code></td><td style="white-space:normal">{d}</td></tr>)}</tbody>
+    </table>
+  </div>
+
+  <h2>Fórmulas dos indicadores</h2>
+  <dl class="defs">
+    <dt>Taxa de ocupação</dt>
+    <dd><span class="formula">pacientes-dia ÷ (leitos SUS operacionais × dias do mês)</span>
+      Pacientes-dia pela lógica de censo: cada AIH ocupa o leito de <code>DT_SAIDA − DIAS_PERM</code> até a véspera de <code>DT_SAIDA</code>,
+      e os dias são distribuídos pelos meses do calendário em que de fato ocorreram. Leitos operacionais = internação + complementares (sem hospital-dia).</dd>
+    <dt>Média de permanência</dt>
+    <dd><span class="formula">dias de permanência das AIH da competência ÷ saídas</span></dd>
+    <dt>Giro de leito</dt>
+    <dd><span class="formula">saídas ÷ leitos SUS operacionais (por mês)</span></dd>
+    <dt>Mortalidade institucional ≥48h</dt>
+    <dd><span class="formula">óbitos com DIAS_PERM ≥ 2 ÷ saídas</span></dd>
+    <dt>Evasão / autossuficiência regional</dt>
+    <dd><span class="formula">autossuficiência = internações de residentes na própria região ÷ internações de residentes · evasão = 1 − autossuficiência</span></dd>
+    <dt>Invasão</dt>
+    <dd><span class="formula">internações realizadas na região de residentes de fora ÷ internações realizadas na região</span></dd>
+    <dt>Leitos por habitante</dt>
+    <dd><span class="formula">leitos de internação SUS (QT_SUS) × 1.000 ÷ população IBGE do ano</span></dd>
+    <dt>Completude do SIH</dt>
+    <dd>Fração esperada das AIH de um mês de alta que já foram processadas, estimada pela defasagem histórica entre alta e processamento.
+      Meses abaixo de 99% são marcados como <b>Preliminar</b>.</dd>
+  </dl>
+
+  <h2>Limitações</h2>
+  <ul>
+    <li>Só internações financiadas pelo SUS (SIH). Pacientes de convênio e particulares não aparecem.</li>
+    <li>O SIH não traz hora de internação/saída: “24h” e “48h” são aproximados por dias.</li>
+    <li>Leitos SUS são os declarados no CNES (QT_SUS), que pode divergir da operação real.</li>
+    <li>A distância é em linha reta entre as sedes municipais, não a distância por estrada.</li>
+    <li>Os meses mais recentes mudam nas próximas cargas, à medida que AIH atrasadas são processadas.</li>
+  </ul>
+
+  <h2>LGPD</h2>
+  <p>Os arquivos do DATASUS são públicos e não identificam pacientes. Mesmo assim, campos de CPF de autorizadores/gestores são
+    pseudonimizados (SHA-256 com sal secreto) já na Bronze, e o site só publica dados agregados.</p>
+</Base>

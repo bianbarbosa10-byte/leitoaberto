@@ -1,0 +1,22 @@
+# credenciais
+.env
+
+# data lake local (espelho do R2) - nunca versionar dados
+data/
+
+# python
+.venv/
+__pycache__/
+*.pyc
+
+# site
+site/node_modules/
+site/dist/
+site/.astro/
+site/src/data/*.json
+site/public/data/
+
+# sistema
+.DS_Store
+Thumbs.db
+desktop.ini

@@ -1,0 +1,15 @@
+---
+import { ANOS, ANO_PADRAO, rotuloAno } from "../lib/dados";
+interface Props { nota?: string; }
+const { nota } = Astro.props;
+---
+<div class="filters">
+  <label for="ano">Ano de referência</label>
+  <select id="ano" data-year-filter>
+    {ANOS.map((a) => <option value={a.ano} selected={a.ano === ANO_PADRAO}>{rotuloAno(a)}</option>)}
+  </select>
+  {ANOS.filter((a) => a.preliminar).map((a) => (
+    <span class="badge warn" data-year={a.ano}>Ano com meses preliminares: o SIH ainda está recebendo AIH desse período</span>
+  ))}
+  {nota && <span class="muted">{nota}</span>}
+</div>

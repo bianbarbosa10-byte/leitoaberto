@@ -1,0 +1,99 @@
+# LeitoAberto - atualizacao mensal automatica (DATASUS -> Bronze -> Silver -> Gold -> Neon -> site)
+#
+# Roda todo dia 10 as 06:00 (Brasilia) e tenta de novo nos dias 11 a 15: o DATASUS costuma atrasar a
+# publicacao. Cada execucao so processa se algum arquivo mudou no FTP (senao termina em ~1 min).
+name: Pipeline mensal
+
+on:
+  schedule:
+    - cron: "0 9 10-15 * *"   # 09:00 UTC = 06:00 BRT, dias 10 a 15 de cada mes
+  workflow_dispatch:
+    inputs:
+      forcar:
+        description: "Reprocessar Silver/Gold mesmo sem dado novo"
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+    paths: ["site/**", "pipeline/sql/**", "seeds/**"]
+
+concurrency:
+  group: pipeline
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  pipeline:
+    if: github.event_name != 'push'   # push so reconstroi o site com os dados que ja estao no Neon
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    outputs:
+      mudou: ${{ steps.run.outputs.mudou }}
+    env:
+      R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      R2_BUCKET: ${{ vars.R2_BUCKET || 'leitoaberto' }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      LA_HASH_SALT: ${{ secrets.LA_HASH_SALT }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Bronze -> Silver -> Gold -> Neon
+        id: run
+        run: |
+          ARGS=""
+          if [ "${{ inputs.forcar }}" = "true" ]; then ARGS="--forcar"; fi
+          python -m pipeline.run $ARGS
+
+  site:
+    needs: pipeline
+    # agendado: so publica se houve dado novo | manual ou push: sempre (se o pipeline nao falhou)
+    if: >-
+      always() && needs.pipeline.result != 'failure' && needs.pipeline.result != 'cancelled' &&
+      (needs.pipeline.outputs.mudou == 'true' || github.event_name != 'schedule')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    env:
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: Exportar dados da Gold (Neon) para o site
+        run: python -m pipeline.export_site
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - id: pages
+        uses: actions/configure-pages@v6
+      - name: Build do site (Astro)
+        working-directory: site
+        env:
+          SITE_URL: ${{ steps.pages.outputs.origin }}
+          SITE_BASE: ${{ steps.pages.outputs.base_path }}
+        run: |
+          npm ci
+          npm run build
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site/dist
+      - id: deploy
+        uses: actions/deploy-pages@v5

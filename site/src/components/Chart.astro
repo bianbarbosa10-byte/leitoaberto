@@ -1,0 +1,9 @@
+---
+// Grafico ECharts renderizado no navegador a partir de uma especificacao montada no build.
+// spec: um grafico fixo | porAno: { "2025": spec, ... } troca com o filtro de ano da pagina.
+interface Props { spec?: object; porAno?: Record<string, object>; label: string; size?: "" | "tall" | "map"; }
+const { spec, porAno, label, size = "" } = Astro.props;
+---
+{porAno
+  ? <div class={`chart ${size}`} role="img" aria-label={label} data-chart-years={JSON.stringify(porAno)}></div>
+  : <div class={`chart ${size}`} role="img" aria-label={label} data-chart={JSON.stringify(spec)}></div>}
