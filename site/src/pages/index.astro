@@ -1,19 +1,32 @@
 ---
 import Base from "../layouts/Base.astro";
-import Kpi from "../components/Kpi.astro";
 import Chart from "../components/Chart.astro";
-import { M, ANO_PADRAO, E1_MES, E1_MES_SERIE, MESES_OCULTOS, E2_REG, E3_REG, ULT_CNES, soma, razao } from "../lib/dados";
-import { int, pct, dec, mesAno } from "../lib/fmt";
+import { M, ANO_PADRAO, E1_MES, E1_MES_SERIE, MESES_OCULTOS, E2_REG, E2_MUN, E3_REG, ULT_CNES, soma, razao } from "../lib/dados";
+import { int, pct, dec, mesAno, dataHora } from "../lib/fmt";
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+// indicadores do ano de referencia (ultimo ano com 12 meses consolidados)
 const mesesAno = E1_MES.filter((r) => r.competencia.startsWith(ANO_PADRAO));
 const ocupacao = razao(soma(mesesAno, "pacientes_dia"), soma(mesesAno, "leitos_dia"));
+const anoAnt = String(+ANO_PADRAO - 1);
+const mesesAnt = E1_MES.filter((r) => r.competencia.startsWith(anoAnt));
+const ocupAnt = razao(soma(mesesAnt, "pacientes_dia"), soma(mesesAnt, "leitos_dia"));
+const deltaPp = ocupacao != null && ocupAnt != null ? (ocupacao - ocupAnt) * 100 : null;
 const saidas = soma(mesesAno, "saidas");
 const reg = E2_REG.filter((r) => String(r.ano) === ANO_PADRAO);
 const evasao = 1 - (razao(soma(reg, "na_propria_regiao"), soma(reg, "residentes_internados")) ?? 0);
+const vazio = E2_MUN.filter((r) => String(r.ano) === ANO_PADRAO && r.sem_atendimento_hospitalar).length;
 const cnes = E3_REG.filter((r) => r.competencia === ULT_CNES);
 const leitosSus1000 = (1000 * soma(cnes, "leitos_internacao_sus")) / soma(cnes, "populacao");
+const leitosSus = soma(cnes, "leitos_internacao_sus");
 
+const ultimos = E1_MES_SERIE.slice(-24);
+const spark = {
+  kind: "line", unit: "pct", compact: true,
+  x: ultimos.map((r) => mesAno(r.competencia)),
+  series: [{ name: "Taxa de ocupação", data: ultimos.map((r) => razao(r.pacientes_dia, r.leitos_dia)) }],
+};
 const serie = {
   kind: "line", unit: "pct", min0: false,
   x: E1_MES_SERIE.map((r) => mesAno(r.competencia)),
@@ -22,60 +35,122 @@ const serie = {
 };
 ---
 <Base title="LeitoAberto">
-  <section>
-    <p class="muted">Portfólio de engenharia e análise de dados em saúde pública · Espírito Santo</p>
-    <h1>Leitos, internações e acesso hospitalar no SUS do Espírito Santo</h1>
+  <section class="hero">
+    <p class="eyebrow">Dados abertos · SUS · Espírito Santo</p>
+    <h1 class="display"><span class="gold">Leitos</span> abertos — a rede hospitalar do SUS capixaba em dados</h1>
     <p class="lead">
-      O LeitoAberto reúne em um só lugar os dados públicos do DATASUS e do IBGE sobre a rede hospitalar capixaba.
-      Os dados são atualizados automaticamente todo mês, passam por um pipeline Bronze → Silver → Gold e alimentam
-      três estudos: eficiência operacional, vazio assistencial e capacidade instalada.
+      Ocupação, internações, fluxo de pacientes e capacidade instalada de todos os hospitais SUS do Espírito Santo,
+      atualizados automaticamente todo mês a partir do DATASUS e do IBGE.
     </p>
-  </section>
+    <div class="ctas">
+      <a class="btn btn-lilac" href={`${base}/metodologia`}>Como funciona</a>
+      <a class="btn btn-dark" href={`${base}/estudo-1`}>Explorar os estudos</a>
+    </div>
 
-  <section class="grid g4" style="margin-top:1.5rem">
-    <Kpi label={`Saídas hospitalares SUS em ${ANO_PADRAO}`} value={int(saidas)} note={`${M.hospitais_com_aih} hospitais com AIH`} />
-    <Kpi label={`Taxa de ocupação em ${ANO_PADRAO}`} value={pct(ocupacao)} note="Leitos SUS operacionais, lógica de censo" />
-    <Kpi label={`Internações fora da região de residência (${ANO_PADRAO})`} value={pct(evasao)} note="Residentes do ES, AIH principais" />
-    <Kpi label={`Leitos SUS de internação por 1.000 hab.`} value={dec(leitosSus1000, 2)} note={`CNES ${mesAno(ULT_CNES)}`} />
+    <div class="stage">
+      <div class="float-card" aria-label="Pipeline de dados">
+        <div class="k">Pipeline mensal · todo dia 10</div>
+        <div class="chips">
+          <span class="chip"><i style="background:#c07a3f"></i>Bronze</span><span class="arrow">--→</span>
+          <span class="chip"><i style="background:#a9b4bd"></i>Silver</span><span class="arrow">--→</span>
+          <span class="chip"><i style="background:#d3b45a"></i>Gold</span>
+        </div>
+      </div>
+      <div class="device">
+        <aside>
+          <div class="d-brand"><span class="brand-mark" style="width:20px;height:20px;border-radius:6px" aria-hidden="true"></span>LeitoAberto · Painel</div>
+          <div class="d-label">Estudos</div>
+          <a class="d-item on" href={`${base}/estudo-1`}><span><i class="d-dot" style="background:var(--series-1)"></i>Eficiência</span><small>{pct(ocupacao)}</small></a>
+          <a class="d-item" href={`${base}/estudo-2`}><span><i class="d-dot" style="background:var(--series-2)"></i>Vazio e fluxo</span><small>{pct(evasao)}</small></a>
+          <a class="d-item" href={`${base}/estudo-3`}><span><i class="d-dot" style="background:var(--series-3)"></i>Capacidade</span><small>{dec(leitosSus1000, 2)}</small></a>
+          <div class="d-label">Fontes</div>
+          <div class="d-item"><span>SIH/SUS</span><small>{mesAno(M.ultima_competencia_sih)}</small></div>
+          <div class="d-item"><span>CNES</span><small>{mesAno(M.ultima_competencia_cnes)}</small></div>
+          <div class="d-item"><span>IBGE</span><small>{M.ultimo_ano_populacao}</small></div>
+        </aside>
+        <div class="d-main">
+          <div class="d-crumb"><span>Painel / <b>Espírito Santo · {ANO_PADRAO}</b></span><span class="badge live">Atualizado em {dataHora(M.atualizado_em)}</span></div>
+          <div class="d-head">
+            <div>
+              <h3 style="margin:0 0 .6rem">Visão geral</h3>
+              <div class="k">Taxa de ocupação dos leitos SUS</div>
+              <div class="d-total">{pct(ocupacao)}</div>
+              {deltaPp != null && <div class="d-delta">{deltaPp >= 0 ? "+" : ""}{dec(deltaPp)} p.p. em relação a {anoAnt}</div>}
+            </div>
+            <Chart spec={spark} label="Taxa de ocupação mensal dos leitos SUS nos últimos 24 meses" />
+          </div>
+          <div class="d-cards">
+            <div class="d-card"><div class="k"><i class="d-dot" style="background:var(--series-1)"></i>Saídas SUS</div><b>{int(saidas)}</b><small>{M.hospitais_com_aih} hospitais com AIH</small></div>
+            <div class="d-card"><div class="k"><i class="d-dot" style="background:var(--series-2)"></i>Fora da região</div><b>{pct(evasao)}</b><small>{vazio} municípios sem internação</small></div>
+            <div class="d-card"><div class="k"><i class="d-dot" style="background:var(--series-3)"></i>Leitos SUS</div><b>{int(leitosSus)}</b><small>{dec(leitosSus1000, 2)} por 1.000 hab.</small></div>
+          </div>
+          <div class="k" style="margin-bottom:4px">Última carga</div>
+          <table class="d-rows">
+            <tbody>
+              <tr><td>{mesAno(M.ultima_competencia_sih)}</td><td>Internações processadas no SIH/SUS (AIH reduzida)</td><td>{int(M.aih_carregadas)} AIH</td></tr>
+              <tr><td>{mesAno(M.ultima_competencia_cnes)}</td><td>Leitos, equipamentos e serviços do CNES</td><td>{int(leitosSus)} leitos SUS</td></tr>
+              <tr><td>{mesAno(M.ultima_competencia_consolidada)}</td><td>Último mês consolidado (99% das AIH já processadas)</td><td>consolidado</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
   </section>
 
   <section>
-    <h2>Ocupação dos leitos SUS mês a mês</h2>
-    <p class="muted">Pacientes-dia ÷ leitos-dia de todos os hospitais com AIH no ES. Os últimos meses ficam marcados como preliminares
-      enquanto o SIH ainda recebe AIH atrasadas{MESES_OCULTOS > 0 && `; ${MESES_OCULTOS} ${MESES_OCULTOS === 1 ? "mês ainda muito incompleto foi omitido" : "meses ainda muito incompletos foram omitidos"}`}.</p>
-    <div class="card"><Chart spec={serie} label="Taxa de ocupação mensal dos leitos SUS no Espírito Santo" /></div>
+    <p class="eyebrow" style="margin-top:4rem">Por que existe</p>
+    <p class="benefit">Os dados do SUS são públicos, mas chegam em arquivos .dbc espalhados por um FTP. O LeitoAberto
+      transforma isso em <span class="gold">indicadores prontos</span>, recalculados sozinhos a cada mês e com a metodologia aberta.</p>
+    <div class="stats">
+      <div class="stat"><b>{dec(M.aih_carregadas / 1000, 0)} mil</b><span>internações (AIH) processadas desde {M.competencia_inicial}</span></div>
+      <div class="stat"><b>{M.hospitais_com_aih}</b><span>hospitais SUS acompanhados mês a mês</span></div>
+      <div class="stat"><b>78</b><span>municípios e 4 regiões de saúde</span></div>
+      <div class="stat"><b>R$ 0</b><span>de infraestrutura: tudo em planos gratuitos</span></div>
+    </div>
   </section>
 
   <section>
     <h2>Os três estudos</h2>
-    <div class="grid g3">
-      <a class="card" href={`${base}/estudo-1`}>
-        <h3>1 · Eficiência operacional</h3>
-        <div class="sub">SIH/SUS + CNES leitos · por hospital e mês</div>
-        <p>Taxa de ocupação, média de permanência, giro de leito e mortalidade institucional dos hospitais que atendem o SUS.</p>
+    <div class="grid g3" style="margin-top:1.25rem">
+      <a class="card study" href={`${base}/estudo-1`}>
+        <span class="n">01</span>
+        <h3>Eficiência operacional</h3>
+        <p>Ocupação, média de permanência, giro de leito e mortalidade institucional de cada hospital.</p>
+        <span class="go">Taxa de ocupação {pct(ocupacao)} →</span>
       </a>
-      <a class="card" href={`${base}/estudo-2`}>
-        <h3>2 · Vazio assistencial e fluxo</h3>
-        <div class="sub">SIH/SUS + IBGE · por município e região de saúde</div>
-        <p>Para onde os pacientes vão para se internar, a distância que percorrem e quais municípios não têm atendimento hospitalar.</p>
+      <a class="card study" href={`${base}/estudo-2`}>
+        <span class="n">02</span>
+        <h3>Vazio assistencial e fluxo</h3>
+        <p>Para onde os pacientes vão para se internar, a distância que percorrem e quem fica sem atendimento.</p>
+        <span class="go">{pct(evasao)} internam fora da região →</span>
       </a>
-      <a class="card" href={`${base}/estudo-3`}>
-        <h3>3 · Capacidade instalada</h3>
-        <div class="sub">CNES leitos, equipamentos e serviços + IBGE</div>
-        <p>Leitos e UTI por habitante, participação do SUS, equipamentos de imagem e serviços especializados em cada região.</p>
+      <a class="card study" href={`${base}/estudo-3`}>
+        <span class="n">03</span>
+        <h3>Capacidade instalada</h3>
+        <p>Leitos e UTI por habitante, participação do SUS, equipamentos de imagem e serviços especializados.</p>
+        <span class="go">{dec(leitosSus1000, 2)} leitos SUS / 1.000 hab. →</span>
       </a>
     </div>
   </section>
 
   <section>
-    <h2>Como os dados chegam aqui</h2>
+    <h2>Ocupação mês a mês</h2>
+    <p class="muted">Pacientes-dia ÷ leitos-dia de todos os hospitais com AIH no ES. Os meses mais recentes aparecem como preliminares
+      enquanto o SIH ainda recebe AIH atrasadas{MESES_OCULTOS > 0 && `; ${MESES_OCULTOS} ${MESES_OCULTOS === 1 ? "mês ainda muito incompleto foi omitido" : "meses ainda muito incompletos foram omitidos"}`}.</p>
+    <div class="card"><Chart spec={serie} label="Taxa de ocupação mensal dos leitos SUS no Espírito Santo" /></div>
+  </section>
+
+  <section class="deep">
+    <p class="eyebrow">Engenharia de dados</p>
+    <h2>Do FTP do DATASUS ao painel, sem intervenção manual</h2>
+    <p>Todo dia 10 um workflow do GitHub Actions baixa só o que mudou, reprocessa as camadas e republica este site.</p>
     <div class="flow">
-      <div class="step src"><b>Fontes públicas</b><small>FTP do DATASUS (SIH-RD, CNES LT/EQ/SR/ST), API SIDRA e malhas do IBGE, API CNES</small></div>
-      <div class="step bronze"><b>Bronze</b><small>Arquivos originais .dbc e cópia fiel em Parquet no Cloudflare R2</small></div>
-      <div class="step silver"><b>Silver</b><small>Tipagem, limpeza, códigos traduzidos, regiões de saúde (DuckDB)</small></div>
+      <div class="step src"><b>Fontes públicas</b><small>FTP DATASUS (SIH-RD, CNES LT/EQ/SR/ST), SIDRA e malhas do IBGE, API CNES</small></div>
+      <div class="step bronze"><b>Bronze</b><small>.dbc original e cópia fiel em Parquet no Cloudflare R2</small></div>
+      <div class="step silver"><b>Silver</b><small>Tipagem, limpeza, códigos traduzidos e regiões de saúde (DuckDB)</small></div>
       <div class="step gold"><b>Gold</b><small>Indicadores dos 3 estudos no Neon (PostgreSQL)</small></div>
       <div class="step out"><b>Site e Power BI</b><small>Este site estático e os painéis do estudo</small></div>
     </div>
-    <p style="margin-top:1rem"><a href={`${base}/metodologia`}>Ver a arquitetura, as tabelas e as fórmulas →</a></p>
+    <p style="margin:1.5rem 0 0"><a href={`${base}/metodologia`}>Ver arquitetura, tabelas e fórmulas →</a></p>
   </section>
 </Base>

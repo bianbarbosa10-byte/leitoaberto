@@ -24,6 +24,7 @@ interface Spec {
   ref?: { value: number; label: string };
   preliminarDesde?: number; // indice do eixo x a partir do qual os dados sao preliminares
   min0?: boolean;
+  compact?: boolean; // grafico "sparkline" do painel da home: area suave, sem eixo y
 }
 
 const css = (v: string) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
@@ -70,7 +71,7 @@ function opcoes(s: Spec): echarts.EChartsCoreOption {
       visualMap: {
         min: Math.min(...vals), max: Math.max(...vals), orient: "horizontal", left: "center", bottom: 0,
         itemWidth: 12, itemHeight: 160, calculable: false, text: [fmt(s.unit, Math.max(...vals)), fmt(s.unit, Math.min(...vals))],
-        textStyle: { color: ink2 }, inRange: { color: [css("--seq-100"), "#5598e7", css("--seq-700")] },
+        textStyle: { color: ink2 }, inRange: { color: [css("--seq-100"), css("--seq-400"), css("--seq-700")] },
       },
       series: [{
         type: "map", map: "ES", roam: false, top: 10, bottom: 50,
@@ -113,7 +114,11 @@ function opcoes(s: Spec): echarts.EChartsCoreOption {
   const series = s.series!.map((se, i) => {
     const cor = cores[(se.slot ?? i) % cores.length];
     const comum: any = { name: se.name, data: se.data, color: cor, emphasis: { focus: "series" } };
-    if (s.kind === "line") {
+    if (s.kind === "line" && s.compact) {
+      Object.assign(comum, { type: "line", smooth: 0.3, symbol: "circle", symbolSize: 7, showSymbol: false, lineStyle: { width: 2 },
+        areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+          { offset: 0, color: cor + "55" }, { offset: 1, color: cor + "00" }]) } });
+    } else if (s.kind === "line") {
       Object.assign(comum, { type: "line", symbol: "circle", symbolSize: 8, showSymbol: false, lineStyle: { width: 2 },
         endLabel: multi && s.series!.length <= 4 ? { show: true, formatter: "{a}", color: ink2, fontSize: 12 } : undefined });
     } else {
@@ -135,6 +140,16 @@ function opcoes(s: Spec): echarts.EChartsCoreOption {
       silent: true, itemStyle: { color: css("--surface-2") },
       label: { show: true, position: "insideTop", color: muted, fontSize: 11, formatter: "preliminar" },
       data: [[{ xAxis: s.x[s.preliminarDesde] }, { xAxis: s.x[s.x.length - 1] }]],
+    };
+  }
+  if (s.compact) {
+    return {
+      textStyle: texto,
+      tooltip: { ...tooltip, trigger: "axis", axisPointer: { type: "line", lineStyle: { color: axis } }, valueFormatter: (v: number) => fmt(s.unit, v) },
+      grid: { left: 0, right: 0, top: 8, bottom: 22 },
+      xAxis: { ...catAxis, boundaryGap: false, axisLabel: { color: muted, fontSize: 10.5, hideOverlap: true, interval: "auto" } },
+      yAxis: { type: "value", show: false, min: "dataMin" },
+      series,
     };
   }
   return {
@@ -228,6 +243,21 @@ function iniciarTema() {
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", redesenhar);
 }
 
+// ---------- navegacao: fundo desfocado ao rolar + menu do celular
+function iniciarNav() {
+  const topo = document.getElementById("topo");
+  const marcar = () => topo?.toggleAttribute("data-scrolled", window.scrollY > 8);
+  window.addEventListener("scroll", marcar, { passive: true });
+  marcar();
+  const burger = document.getElementById("burger");
+  const menu = document.getElementById("menu");
+  burger?.addEventListener("click", () => {
+    const aberto = menu?.classList.toggle("open") ?? false;
+    burger.setAttribute("aria-expanded", String(aberto));
+  });
+}
+
+iniciarNav();
 iniciarTema();
 iniciarFiltro();
 iniciarTabelas();

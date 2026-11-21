@@ -8,7 +8,6 @@ const { title, description = "Dados abertos sobre leitos, internações e acesso
 const base = import.meta.env.BASE_URL.replace(/\/$/, "");
 const atual = Astro.url.pathname.replace(base, "").replace(/\/$/, "") || "/";
 const links = [
-  ["/", "Início"],
   ["/estudo-1", "Eficiência"],
   ["/estudo-2", "Vazio e fluxo"],
   ["/estudo-3", "Capacidade"],
@@ -22,26 +21,41 @@ const m = meta[0];
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{title === "LeitoAberto" ? title : `${title} · LeitoAberto`}</title>
+    <title>{title === "LeitoAberto" ? "LeitoAberto · Dados abertos do SUS no Espírito Santo" : `${title} · LeitoAberto`}</title>
     <meta name="description" content={description} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
     <link rel="icon" href={`${base}/favicon.svg`} type="image/svg+xml" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600&display=swap" rel="stylesheet" />
     <script is:inline>
       try { const t = localStorage.getItem("tema"); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
     </script>
   </head>
   <body data-base={base}>
-    <header class="top">
+    <header class="top" id="topo">
       <div class="wrap">
-        <a class="brand" href={`${base}/`}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 18v-6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6M3 18h18M3 18v2M21 18v2M7 10V7a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v3"/></svg>
+        <a class="brand" href={`${base}/`} aria-label="LeitoAberto, início">
+          <span class="brand-mark" aria-hidden="true">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M3 18v-6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6M3 18h18M7 10V7"/></svg>
+          </span>
           LeitoAberto
         </a>
-        <nav class="menu" aria-label="Principal">
+        <nav class="menu" id="menu" aria-label="Principal">
           {links.map(([href, rotulo]) => (
             <a href={`${base}${href}`} aria-current={atual === href ? "page" : undefined}>{rotulo}</a>
           ))}
         </nav>
-        <button class="theme-btn" id="tema" type="button" aria-label="Alternar tema claro/escuro">◐</button>
+        <div class="nav-end">
+          <button class="theme-btn" id="tema" type="button" aria-label="Alternar tema claro/escuro">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3v18" /><path d="M12 3a9 9 0 0 1 0 18" fill="currentColor"/></svg>
+          </button>
+          <a class="btn btn-dark btn-sm" href={`${base}/estudo-1`}>Ver dados</a>
+          <button class="burger" id="burger" type="button" aria-label="Abrir menu" aria-expanded="false" aria-controls="menu">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+          </button>
+        </div>
       </div>
     </header>
     <main>
@@ -51,8 +65,14 @@ const m = meta[0];
     </main>
     <footer>
       <div class="wrap">
-        <span>Fontes: DATASUS (SIH/SUS, CNES) e IBGE. Atualização automática todo dia 10.</span>
-        <span>Última atualização: {dataHora(m.atualizado_em)} · SIH até {m.ultima_competencia_sih} · CNES até {m.ultima_competencia_cnes}</span>
+        <span>
+          <b>LeitoAberto</b> · Fontes: DATASUS (SIH/SUS, CNES) e IBGE · atualização automática todo dia 10<br />
+          Última carga: {dataHora(m.atualizado_em)} · SIH até {m.ultima_competencia_sih} · CNES até {m.ultima_competencia_cnes}
+        </span>
+        <span>
+          Por Bian Barbosa Monfardini · <a href="https://github.com/bianbarbosa10-byte/leitoaberto">código aberto</a><br />
+          Visual inspirado no template <a href="https://21st.dev/community/templates/treasury-management-fintech-landing-page">Vaultline</a> (Kedhareswer Naidu, MIT)
+        </span>
       </div>
     </footer>
     <script>
