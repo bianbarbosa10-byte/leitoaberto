@@ -1,141 +1,62 @@
 ---
 import Base from "../layouts/Base.astro";
-import Kpi from "../components/Kpi.astro";
-import Chart from "../components/Chart.astro";
-import FiltroAno from "../components/FiltroAno.astro";
-import { ANOS, E1_HOSP, E1_MES, E1_MES_SERIE, E1_PERFIL, soma, razao } from "../lib/dados";
-import { int, pct, dec, brl, mesAno } from "../lib/fmt";
-
-const porAno = ANOS.map(({ ano }) => {
-  const h = E1_HOSP.filter((r) => String(r.ano) === ano);
-  const meses = E1_MES.filter((r) => r.competencia.startsWith(ano));
-  const nMeses = meses.length || 1;
-  const saidas = soma(h, "saidas");
-  const hosp = h
-    .map((r) => ({
-      ...r,
-      ocupacao: razao(r.pacientes_dia, r.leitos_dia),
-      permanencia: razao(r.pacientes_dia_competencia, r.saidas),
-      giro: r.leitos_sus_medios ? r.saidas / r.leitos_sus_medios / (r.meses || 1) : null,
-      mort48: razao(r.obitos_48h_mais, r.saidas),
-    }))
-    .sort((a, b) => b.saidas - a.saidas);
-  const top = hosp.filter((r) => r.leitos_sus_medios >= 10).slice(0, 20);
-  const perfil = E1_PERFIL.filter((r) => String(r.ano) === ano);
-  const faixas = [...new Set(perfil.map((r) => r.faixa_etaria))].sort();
-  return {
-    ano,
-    kpi: {
-      ocupacao: razao(soma(meses, "pacientes_dia"), soma(meses, "leitos_dia")),
-      permanencia: razao(soma(meses, "pacientes_dia_competencia"), saidas),
-      giro: razao(saidas, soma(meses, "leitos_sus_operacionais")),
-      mort48: razao(soma(meses, "obitos_48h_mais"), saidas),
-      saidas, valor: soma(meses, "valor_total_aih"), nMeses,
-    },
-    hosp,
-    graf: {
-      kind: "bar", unit: "pct", horizontal: true,
-      x: top.map((r) => r.hospital), ref: { value: 0.85, label: "85%" },
-      series: [{ name: "Taxa de ocupação", data: top.map((r) => r.ocupacao) }],
-    },
-    perm: {
-      kind: "bar", unit: "dec1",
-      x: faixas.map((f) => f.slice(3)),
-      series: ["Eletivo", "Urgência"].map((c, i) => ({
-        name: c, slot: i,
-        data: faixas.map((f) => {
-          const rs = perfil.filter((r) => r.faixa_etaria === f && r.carater === c);
-          return razao(soma(rs, "pacientes_dia"), soma(rs, "saidas"));
-        }),
-      })),
-    },
-  };
-});
-
-const serieMensal = {
-  kind: "line", unit: "dec1",
-  x: E1_MES_SERIE.map((r) => mesAno(r.competencia)),
-  series: [{ name: "Média de permanência (dias)", data: E1_MES_SERIE.map((r) => razao(r.pacientes_dia_competencia, r.saidas)) }],
-  preliminarDesde: E1_MES_SERIE.findIndex((r) => r.status_dados !== "Consolidado"),
-  min0: false,
-};
+import Estudo1Topo from "../components/Estudo1Topo.astro";
 ---
-<Base title="Estudo 1 · Eficiência operacional" description="Ocupação, permanência, giro de leito e mortalidade dos hospitais SUS do Espírito Santo.">
-  <p class="eyebrow">Estudo 1</p>
-  <h1>Eficiência operacional dos hospitais</h1>
-  <p class="lead">Como os hospitais que atendem o SUS no Espírito Santo usam seus leitos: quanto ficam ocupados, por quanto tempo
-    o paciente permanece, quantas vezes cada leito “gira” no mês e qual a mortalidade institucional.</p>
+<Base title="Estudo 1 · Unidades" description="Ocupação, permanência, giro de leito e mortalidade dos hospitais SUS do Espírito Santo, com filtros por ano, mês e estabelecimento.">
+  <div data-e1="unidades">
+    <p class="eyebrow">Estudo 1 · Eficiência operacional</p>
+    <h1>Análise das unidades</h1>
+    <p class="lead">Como os hospitais que atendem o SUS no Espírito Santo usam seus leitos: quanto ficam ocupados, por quanto
+      tempo o paciente permanece, quantas vezes cada leito “gira” no mês e qual a mortalidade institucional.</p>
 
-  <FiltroAno />
+    <Estudo1Topo aba="unidades" />
 
-  {porAno.map((a) => (
-    <div data-year={a.ano}>
-      <section class="grid g4">
-        <Kpi label="Taxa de ocupação" value={pct(a.kpi.ocupacao)} note="Referência usual: 75% a 85%" />
-        <Kpi label="Média de permanência" value={`${dec(a.kpi.permanencia)} dias`} note={`${int(a.kpi.saidas)} saídas no ano`} />
-        <Kpi label="Giro de leito (mensal)" value={dec(a.kpi.giro)} note="Saídas por leito SUS operacional por mês" />
-        <Kpi label="Mortalidade institucional ≥48h" value={pct(a.kpi.mort48, 2)} note={`Valor pago em AIH: ${brl(a.kpi.valor)}`} />
-      </section>
-    </div>
-  ))}
+    <section class="grid g4">
+      <div class="card kpi" id="k-ocup"><div class="label">Taxa de ocupação</div><div class="value">–</div><div class="note"></div></div>
+      <div class="card kpi" id="k-perm"><div class="label">Média de permanência</div><div class="value">–</div><div class="note"></div></div>
+      <div class="card kpi" id="k-giro"><div class="label">Giro de leito (mensal)</div><div class="value">–</div><div class="note"></div></div>
+      <div class="card kpi" id="k-mort"><div class="label">Mortalidade institucional ≥48h</div><div class="value">–</div><div class="note"></div></div>
+    </section>
 
-  <section class="grid g2" style="margin-top:16px">
-    <div class="card">
-      <h3>Ocupação dos 20 hospitais com mais saídas</h3>
-      <div class="sub">Hospitais com 10 ou mais leitos SUS operacionais. Linha tracejada = 85%.</div>
-      <Chart porAno={Object.fromEntries(porAno.map((a) => [a.ano, a.graf]))} size="tall" label="Taxa de ocupação por hospital" />
-    </div>
-    <div class="card">
-      <h3>Permanência por faixa etária e caráter</h3>
-      <div class="sub">Dias de internação por saída</div>
-      <Chart porAno={Object.fromEntries(porAno.map((a) => [a.ano, a.perm]))} size="tall" label="Média de permanência por faixa etária, eletivo e urgência" />
-    </div>
-  </section>
-
-  <section>
-    <h2>Permanência média, mês a mês</h2>
-    <div class="card"><Chart spec={serieMensal} label="Média de permanência mensal no ES" /></div>
-  </section>
-
-  <section>
-    <h2>Indicadores por hospital</h2>
-    <p class="muted">Clique no cabeçalho para ordenar. Taxas calculadas somando numerador e denominador do ano.</p>
-    {porAno.map((a) => (
-      <div data-year={a.ano} class="table-wrap scroll-y">
-        <table data-sortable>
-          <thead><tr>
-            <th>Hospital</th><th>Município</th><th>Região</th><th>Natureza</th>
-            <th class="n">Leitos SUS</th><th class="n">Saídas</th><th class="n">Ocupação</th>
-            <th class="n">Permanência</th><th class="n">Giro/mês</th><th class="n">Mort. ≥48h</th>
-          </tr></thead>
-          <tbody>
-            {a.hosp.map((r) => (
-              <tr>
-                <td>{r.hospital}</td><td>{r.municipio}</td><td>{r.regiao_saude}</td><td>{r.grupo_natureza}</td>
-                <td class="n" data-v={r.leitos_sus_medios}>{dec(r.leitos_sus_medios, 0)}</td>
-                <td class="n" data-v={r.saidas}>{int(r.saidas)}</td>
-                <td class="n" data-v={r.ocupacao ?? -1}>{pct(r.ocupacao)}</td>
-                <td class="n" data-v={r.permanencia ?? -1}>{dec(r.permanencia)}</td>
-                <td class="n" data-v={r.giro ?? -1}>{dec(r.giro)}</td>
-                <td class="n" data-v={r.mort48 ?? -1}>{pct(r.mort48, 2)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <section class="grid g2" style="margin-top:16px">
+      <div class="card">
+        <h3 id="g1-titulo">Ocupação</h3>
+        <div class="sub" id="g1-sub"></div>
+        <div class="chart tall" id="g1" role="img" aria-label="Taxa de ocupação"></div>
       </div>
-    ))}
-  </section>
+      <div class="card">
+        <h3>Permanência por faixa etária e caráter</h3>
+        <div class="sub">Dias de internação por saída, no recorte selecionado</div>
+        <div class="chart tall" id="g2" role="img" aria-label="Média de permanência por faixa etária, eletivo e urgência"></div>
+      </div>
+    </section>
 
-  <section>
-    <h2>Como ler</h2>
-    <dl class="defs">
-      <dt>Taxa de ocupação</dt>
-      <dd>Pacientes-dia ÷ leitos-dia. Os pacientes-dia são distribuídos pelo mês real em que o leito foi ocupado (lógica de censo), e não
-        pelo mês em que a AIH foi processada. Ocupação acima de 100% é possível quando o hospital interna mais pacientes SUS do que os leitos SUS declarados no CNES.</dd>
-      <dt>Saídas, permanência, giro e mortalidade</dt>
-      <dd>Usam a competência de processamento da AIH. AIH de continuação (motivos 21 a 29) não contam como saída.</dd>
-      <dt>Mortalidade institucional ≥48h</dt>
-      <dd>Óbitos com 2 ou mais dias de permanência ÷ saídas. O SIH não traz hora, então “48h” é aproximado por dias.</dd>
-    </dl>
-  </section>
+    <section>
+      <h2 id="g3-titulo">Permanência média mês a mês</h2>
+      <p class="muted">Série completa, independente do filtro de ano e mês. Meses ainda muito incompletos no SIH ficam de fora.</p>
+      <div class="card"><div class="chart" id="g3" role="img" aria-label="Média de permanência mensal"></div></div>
+    </section>
+
+    <section>
+      <h2 id="t-titulo">Indicadores por hospital</h2>
+      <p class="muted">Clique no cabeçalho para ordenar e no nome do hospital para filtrar por ele. Taxas calculadas somando numerador e denominador do recorte.</p>
+      <div class="table-wrap scroll-y"><table id="tabela"></table></div>
+    </section>
+
+    <section>
+      <h2>Como ler</h2>
+      <dl class="defs">
+        <dt>Taxa de ocupação</dt>
+        <dd>Pacientes-dia ÷ leitos-dia. Os pacientes-dia são distribuídos pelo mês real em que o leito foi ocupado (lógica de censo), e não
+          pelo mês em que a AIH foi processada. Ocupação acima de 100% é possível quando o hospital interna mais pacientes SUS do que os leitos SUS declarados no CNES.</dd>
+        <dt>Saídas, permanência, giro e mortalidade</dt>
+        <dd>Usam a competência de processamento da AIH. AIH de continuação (motivos 21 a 29) não contam como saída.</dd>
+        <dt>Mortalidade institucional ≥48h</dt>
+        <dd>Óbitos com 2 ou mais dias de permanência ÷ saídas. O SIH não traz hora, então “48h” é aproximado por dias.</dd>
+      </dl>
+    </section>
+  </div>
+  <script>
+    import "../scripts/estudo1";
+  </script>
 </Base>

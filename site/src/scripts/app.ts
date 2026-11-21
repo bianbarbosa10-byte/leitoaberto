@@ -9,9 +9,9 @@ import { SVGRenderer } from "echarts/renderers";
 echarts.use([LineChart, BarChart, HeatmapChart, MapChart, GridComponent, TooltipComponent, LegendComponent,
   MarkLineComponent, MarkAreaComponent, VisualMapComponent, GeoComponent, SVGRenderer]);
 
-type Unit = "pct" | "int" | "dec1" | "dec2";
+export type Unit = "pct" | "int" | "dec1" | "dec2";
 interface Serie { name: string; data: (number | null)[]; slot?: number }
-interface Spec {
+export interface Spec {
   kind: "line" | "bar" | "heatmap" | "map";
   unit: Unit;
   x?: string[];
@@ -194,6 +194,37 @@ function redesenhar() {
   graficos.forEach((g) => g.chart.setOption(opcoes(g.spec()), true));
 }
 
+// ---------- API para paginas com filtros dinamicos (estudo 1)
+/** Registra um grafico cuja especificacao vem de uma funcao (lida de novo a cada redesenho). */
+export function registrarGrafico(el: HTMLElement, spec: () => Spec) {
+  const chart = echarts.init(el, undefined, { renderer: "svg" });
+  chart.setOption(opcoes(spec()));
+  graficos.push({ el, chart, spec });
+}
+/** Redesenha todos os graficos (apos mudar filtros ou tema). */
+export const redesenharGraficos = redesenhar;
+/** Torna uma tabela ordenavel pelo cabecalho (para tabelas montadas no navegador). */
+export function ordenavel(t: HTMLTableElement) {
+  t.querySelectorAll<HTMLTableCellElement>("th").forEach((th, i) => {
+    if (th.dataset.sort != null) return;
+    th.dataset.sort = "";
+    let asc = false;
+    th.addEventListener("click", () => {
+      const tb = t.tBodies[0];
+      const linhas = [...tb.rows];
+      linhas.sort((a, b) => {
+        const va = a.cells[i]?.dataset.v ?? a.cells[i]?.textContent ?? "";
+        const vb = b.cells[i]?.dataset.v ?? b.cells[i]?.textContent ?? "";
+        const na = parseFloat(va), nb = parseFloat(vb);
+        const r = !isNaN(na) && !isNaN(nb) ? na - nb : va.localeCompare(vb, "pt-BR");
+        return asc ? r : -r;
+      });
+      asc = !asc;
+      linhas.forEach((l) => tb.appendChild(l));
+    });
+  });
+}
+
 // ---------- filtro de ano: mostra blocos [data-year] e troca os graficos
 function iniciarFiltro() {
   const sel = document.querySelector<HTMLSelectElement>("[data-year-filter]");
@@ -208,25 +239,7 @@ function iniciarFiltro() {
 
 // ---------- ordenacao de tabelas (clique no cabecalho)
 function iniciarTabelas() {
-  document.querySelectorAll<HTMLTableElement>("table[data-sortable]").forEach((t) => {
-    t.querySelectorAll<HTMLTableCellElement>("th").forEach((th, i) => {
-      th.dataset.sort = "";
-      let asc = false;
-      th.addEventListener("click", () => {
-        const tb = t.tBodies[0];
-        const linhas = [...tb.rows];
-        linhas.sort((a, b) => {
-          const va = a.cells[i].dataset.v ?? a.cells[i].textContent ?? "";
-          const vb = b.cells[i].dataset.v ?? b.cells[i].textContent ?? "";
-          const na = parseFloat(va), nb = parseFloat(vb);
-          const r = !isNaN(na) && !isNaN(nb) ? na - nb : va.localeCompare(vb, "pt-BR");
-          return asc ? r : -r;
-        });
-        asc = !asc;
-        linhas.forEach((l) => tb.appendChild(l));
-      });
-    });
-  });
+  document.querySelectorAll<HTMLTableElement>("table[data-sortable]").forEach(ordenavel);
 }
 
 // ---------- tema

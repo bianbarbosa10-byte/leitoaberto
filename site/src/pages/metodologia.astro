@@ -10,6 +10,7 @@ const tabelas = [
   ["populacao", "População IBGE por município e ano (usa o ano disponível mais recente)"],
   ["e1_hospital_mes", "Estudo 1: leitos, pacientes-dia, saídas, óbitos e taxas por hospital × mês"],
   ["e1_perfil_internacao", "Estudo 1: internações por caráter, faixa etária e complexidade"],
+  ["e1_procedimento_mes / dim_procedimento", "Estudo 1: AIH, saídas, permanência, óbitos e valor por hospital × mês × procedimento SIGTAP"],
   ["e2_municipio_ano", "Estudo 2: evasão, invasão, distância e vazio assistencial por município"],
   ["e2_regiao_ano", "Estudo 2: autossuficiência, invasão, ocupação e leitos ociosos por região"],
   ["e2_fluxo_regiao_ano / e2_fluxo_municipio_ano", "Estudo 2: matrizes de fluxo origem → destino"],
@@ -77,6 +78,7 @@ const tabelas = [
   <h2>Limitações</h2>
   <ul>
     <li>Só internações financiadas pelo SUS (SIH). Pacientes de convênio e particulares não aparecem.</li>
+    <li><b>Produção aprovada ≠ produção realizada:</b> o SIH só traz AIH aprovadas para pagamento. AIH rejeitadas, glosadas, em reapresentação ou não faturadas ficam de fora, então a produção real tende a ser maior. Para gestão interna, prefira os dados do sistema da própria instituição.</li>
     <li>O SIH não traz hora de internação/saída: “24h” e “48h” são aproximados por dias.</li>
     <li>Leitos SUS são os declarados no CNES (QT_SUS), que pode divergir da operação real.</li>
     <li>A distância é em linha reta entre as sedes municipais, não a distância por estrada.</li>

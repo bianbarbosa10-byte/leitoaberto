@@ -1,0 +1,51 @@
+---
+import Base from "../../layouts/Base.astro";
+import Estudo1Topo from "../../components/Estudo1Topo.astro";
+---
+<Base title="Estudo 1 · Procedimentos" description="Produção hospitalar SUS por procedimento SIGTAP no Espírito Santo, com filtros por ano, mês e estabelecimento.">
+  <div data-e1="procedimentos">
+    <p class="eyebrow">Estudo 1 · Eficiência operacional</p>
+    <h1>Análise dos procedimentos</h1>
+    <p class="lead">Quais procedimentos SIGTAP os hospitais realizam pelo SUS, quanto cada um representa em internações e em valor
+      aprovado, e como variam permanência e mortalidade entre eles.</p>
+
+    <Estudo1Topo aba="procedimentos" />
+
+    <section class="grid g4">
+      <div class="card kpi" id="k-aih"><div class="label">AIH aprovadas</div><div class="value">–</div><div class="note"></div></div>
+      <div class="card kpi" id="k-distintos"><div class="label">Procedimentos realizados</div><div class="value">–</div><div class="note"></div></div>
+      <div class="card kpi" id="k-valor"><div class="label">Valor aprovado</div><div class="value">–</div><div class="note"></div></div>
+      <div class="card kpi" id="k-medio"><div class="label">Valor médio por AIH</div><div class="value">–</div><div class="note"></div></div>
+    </section>
+
+    <section class="grid g2" style="margin-top:16px">
+      <div class="card">
+        <h3>15 procedimentos com mais AIH</h3>
+        <div class="sub">Procedimento principal realizado (PROC_REA) no recorte selecionado</div>
+        <div class="chart tall" id="g1" role="img" aria-label="Procedimentos com mais AIH aprovadas"></div>
+      </div>
+      <div class="card">
+        <h3>AIH por grupo SIGTAP</h3>
+        <div class="sub">Grupos da Tabela de Procedimentos do SUS</div>
+        <div class="chart" id="g2" style="height:230px" role="img" aria-label="AIH aprovadas por grupo SIGTAP"></div>
+        <h3 style="margin-top:1rem">Média × alta complexidade</h3>
+        <div class="sub">Participação no número de AIH e no valor aprovado</div>
+        <div class="chart" id="g3" style="height:200px" role="img" aria-label="Participação de média e alta complexidade em AIH e valor"></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>Todos os procedimentos</h2>
+      <div class="busca-linha">
+        <input id="busca" type="search" class="busca" placeholder="Buscar por nome ou código SIGTAP…" aria-label="Buscar procedimento" />
+        <span class="muted" id="t-info"></span>
+      </div>
+      <div class="table-wrap scroll-y"><table id="tabela"></table></div>
+      <p class="muted" style="margin-top:.75rem">Permanência = dias de internação ÷ saídas. Mortalidade = óbitos ÷ saídas. Valor aprovado = soma do
+        valor total das AIH aprovadas (VAL_TOT), na competência de processamento.</p>
+    </section>
+  </div>
+  <script>
+    import "../../scripts/estudo1";
+  </script>
+</Base>

@@ -1,0 +1,32 @@
+---
+// Cabecalho comum das paginas do Estudo 1: abas, filtros (ano, mes, estabelecimento) e aviso sobre os dados do SIH.
+interface Props { aba: "unidades" | "procedimentos"; }
+const { aba } = Astro.props;
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+---
+<nav class="tabs" aria-label="Seções do Estudo 1">
+  <a href={`${base}/estudo-1`} data-aba aria-current={aba === "unidades" ? "page" : undefined}>Unidades</a>
+  <a href={`${base}/estudo-1/procedimentos`} data-aba aria-current={aba === "procedimentos" ? "page" : undefined}>Procedimentos</a>
+</nav>
+
+<div class="filters filters-e1" role="search" aria-label="Filtros do Estudo 1">
+  <label class="f"><span>Ano</span><select id="f-ano" aria-label="Ano"></select></label>
+  <label class="f"><span>Mês</span><select id="f-mes" aria-label="Mês"></select></label>
+  <label class="f f-grow"><span>Estabelecimento</span><select id="f-hosp" aria-label="Estabelecimento"></select></label>
+  <button class="btn btn-ghost btn-sm" id="f-limpar" type="button">Limpar</button>
+</div>
+<div class="recorte-linha">
+  <span class="muted">Recorte: <b id="recorte">carregando…</b></span>
+  <span class="badge warn" id="f-aviso" hidden></span>
+</div>
+
+<aside class="callout" role="note">
+  <div class="callout-ic" aria-hidden="true">i</div>
+  <div>
+    <b>Produção aprovada não é igual à produção realizada.</b>{" "}
+    O SIH/SUS (DATASUS) registra apenas as AIH{" "}<b>aprovadas</b>{" "}para pagamento. Internações com AIH rejeitada, glosada,
+    em reapresentação ou ainda não faturada não aparecem aqui, então a produção real da unidade tende a ser{" "}<b>maior</b>{" "}
+    do que a mostrada. Para gestão interna, os dados do sistema da própria instituição são mais completos; use o DATASUS
+    para comparar unidades entre si e acompanhar tendências.
+  </div>
+</aside>

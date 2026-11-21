@@ -44,7 +44,7 @@ const m = meta[0];
         </a>
         <nav class="menu" id="menu" aria-label="Principal">
           {links.map(([href, rotulo]) => (
-            <a href={`${base}${href}`} aria-current={atual === href ? "page" : undefined}>{rotulo}</a>
+            <a href={`${base}${href}`} aria-current={atual === href || atual.startsWith(href + "/") ? "page" : undefined}>{rotulo}</a>
           ))}
         </nav>
         <div class="nav-end">

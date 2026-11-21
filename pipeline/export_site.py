@@ -65,8 +65,75 @@ def _sem_ilhas_oceanicas(g) -> bytes:
     return json.dumps(g, separators=(",", ":")).encode()
 
 
+def _colunar(con, sql):
+    """Resultado em formato colunar compacto {coluna: [valores]} (bem menor que lista de objetos)."""
+    cur = con.execute(sql)
+    cols = [d[0] for d in cur.description]
+    linhas = cur.fetchall()
+    def v(x):
+        if isinstance(x, Decimal):
+            x = float(x)
+        if isinstance(x, float):
+            return round(x, 2) if not x.is_integer() else int(x)
+        return x
+    return {c: [v(r[i]) for r in linhas] for i, c in enumerate(cols)}
+
+
+def _gravar_publico(rel, obj):
+    p = SITE_PUBLIC / rel
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(obj, default=_json, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    return p.stat().st_size
+
+
+def exportar_estudo1(con):
+    """Dados do Estudo 1 para filtros no navegador (ano, mes, estabelecimento):
+      e1/indice.json       meses, hospitais e dicionario de procedimentos
+      e1/todos.json        hospital x mes (todos), perfil e procedimentos do ES inteiro por mes
+      e1/h/<cnes>.json     perfil e procedimentos de um hospital por mes (baixado so quando escolhido)"""
+    import shutil
+    shutil.rmtree(SITE_PUBLIC / "e1", ignore_errors=True)
+    indice = {
+        "meses": _colunar(con, "select competencia, status_dados, completude_sih from dim_calendario order by 1"),
+        "hospitais": _colunar(con, """select cnes, hospital, municipio, regiao_saude, grupo_natureza, porte
+                                      from dim_hospital where tem_aih order by hospital"""),
+        "procedimentos": _colunar(con, """select proc_rea, procedimento, cod_grupo, grupo, subgrupo, complexidade
+                                          from dim_procedimento order by proc_rea"""),
+    }
+    tam = _gravar_publico("e1/indice.json", indice)
+    todos = {
+        "hosp_mes": _colunar(con, """
+            select cnes, competencia, pacientes_dia, leitos_dia, leitos_sus_operacionais, saidas, aih_aprovadas,
+                   pacientes_dia_competencia, obitos, obitos_48h_mais, round(valor_total_aih, 2) valor_total_aih
+            from e1_hospital_mes order by cnes, competencia"""),
+        "perfil": _colunar(con, """
+            select competencia, carater, faixa_etaria, complexidade, sum(saidas) saidas, sum(pacientes_dia) pacientes_dia,
+                   sum(obitos_48h_mais) obitos_48h_mais
+            from e1_perfil_internacao group by all order by 1, 2, 3, 4"""),
+        "proc": _colunar(con, """
+            select competencia, proc_rea, sum(aih_aprovadas) aih, sum(saidas) saidas, sum(pacientes_dia) dias,
+                   sum(obitos) obitos, round(sum(valor_total_aih), 2) valor
+            from e1_procedimento_mes group by all order by 1, 2"""),
+    }
+    tam += _gravar_publico("e1/todos.json", todos)
+    n = 0
+    for (cnes,) in con.execute("select cnes from dim_hospital where tem_aih").fetchall():
+        h = {
+            "perfil": _colunar(con, f"""
+                select competencia, carater, faixa_etaria, complexidade, saidas, pacientes_dia, obitos_48h_mais
+                from e1_perfil_internacao where cnes = '{cnes}' order by 1, 2, 3, 4"""),
+            "proc": _colunar(con, f"""
+                select competencia, proc_rea, aih_aprovadas aih, saidas, pacientes_dia dias, obitos, valor_total_aih valor
+                from e1_procedimento_mes where cnes = '{cnes}' order by 1, 2"""),
+        }
+        tam += _gravar_publico(f"e1/h/{cnes}.json", h)
+        n += 1
+    print(f"  e1/ (indice, todos, {n} hospitais)  {tam / 1024:,.0f} KB")
+
+
 def main():
     con = _con()
+    exportar_estudo1(con)
 
     salvar(con, "meta", "select * from meta_atualizacao")
     salvar(con, "calendario", "select competencia, ano, mes, mes_ano, dias_no_mes, completude_sih, status_dados "

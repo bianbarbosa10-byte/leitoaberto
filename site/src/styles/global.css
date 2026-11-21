@@ -357,3 +357,28 @@ footer a { color: var(--text-secondary); }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; scroll-behavior: auto !important; }
 }
+
+/* ---------- Estudo 1: abas, filtros, aviso e busca ---------- */
+.tabs { display: inline-flex; gap: 4px; padding: 4px; margin-top: 1.4rem; background: var(--surface-2); border-radius: 999px; }
+.tabs a { padding: 8px 18px; border-radius: 999px; text-decoration: none; color: var(--text-secondary); font-size: 14px; font-weight: 500; }
+.tabs a:hover { color: var(--text-primary); }
+.tabs a[aria-current="page"] { background: var(--surface-1); color: var(--text-primary); box-shadow: 0 1px 3px rgba(16, 41, 45, 0.12); }
+.filters-e1 { margin-top: 1rem; }
+.filters-e1 .f { display: flex; align-items: center; gap: 8px; }
+.filters-e1 .f span { font-size: 11px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text-muted); }
+.filters-e1 .f-grow { flex: 1; min-width: 0; }
+.filters-e1 .f-grow select { width: 100%; min-width: 0; text-overflow: ellipsis; }
+.recorte-linha { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: -0.4rem 0 1rem 6px; }
+.recorte-linha b { color: var(--text-primary); font-weight: 500; }
+.callout { display: flex; gap: 14px; align-items: flex-start; background: color-mix(in srgb, var(--lilac) 35%, var(--surface-1)); border: 1px solid color-mix(in srgb, var(--lilac) 70%, var(--border)); border-radius: var(--radius); padding: 14px 18px; margin: 0 0 1.25rem; font-size: 0.92rem; color: var(--text-secondary); }
+.callout b { color: var(--text-primary); font-weight: 500; }
+.callout-ic { flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 99px; background: var(--btn); color: var(--btn-ink); font-weight: 600; font-size: 13px; font-style: italic; margin-top: 1px; }
+.busca-linha { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin: 0.75rem 0 0.9rem; }
+.busca { font: inherit; font-size: 14px; padding: 0.55rem 1rem; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-1); color: var(--text-primary); width: min(100%, 420px); }
+body.carregando [data-e1] .chart, body.carregando [data-e1] .kpi .value { opacity: 0.45; transition: opacity 0.2s; }
+@media (max-width: 720px) {
+  .filters-e1 .f { flex: 1 1 100%; }
+  .filters-e1 .f select { flex: 1; }
+}
+
+[hidden] { display: none !important; }
