@@ -71,11 +71,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
+      contents: read
+      pages: read   # configure-pages le a URL e o caminho base do site
     env:
       DATABASE_URL: ${{ secrets.DATABASE_URL }}
     steps:
@@ -107,5 +104,19 @@ jobs:
       - uses: actions/upload-pages-artifact@v5
         with:
           path: site/dist
+
+  # deploy em job separado: no mesmo job o deploy-pages as vezes consulta o artefato antes de a API do
+  # GitHub enxerga-lo ("No artifacts named github-pages")
+  deploy:
+    needs: site
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
       - id: deploy
         uses: actions/deploy-pages@v5
