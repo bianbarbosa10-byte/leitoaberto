@@ -37,10 +37,10 @@ const tabelas = [
   </div>
 
   <h2>Atualização automática</h2>
-  <p>Um workflow do <b>GitHub Actions</b> roda todo <b>dia 10 às 06:00</b> (Brasília) e tenta de novo nos dias 11 a 15,
-    porque o DATASUS costuma atrasar a publicação. A cada execução o pipeline compara o tamanho e a data de cada arquivo no FTP com o
-    manifesto da Bronze: só o que é novo ou foi republicado é baixado (o DATASUS republica competências antigas do SIH quando chegam AIH
-    atrasadas). Se nada mudou, a execução termina em cerca de um minuto, sem reconstruir o site.</p>
+  <p>Um workflow do <b>GitHub Actions</b> roda todo <b>dia 25 às 06:00</b> (Brasília) e <b>recarrega os últimos 6 meses</b> de cada
+    fonte do DATASUS, porque o SIH continua recebendo AIH atrasadas desses meses. Competências mais antigas só são baixadas de novo se
+    o arquivo mudou no FTP (tamanho ou data diferentes do manifesto da Bronze). Os dias 26 a 28 são repetição de segurança: refazem a
+    recarga apenas se a do dia 25 falhou por instabilidade do FTP.</p>
   <p class="muted">Carga atual: {int(M.aih_carregadas)} AIH desde {M.competencia_inicial} · atualizado em {dataHora(M.atualizado_em)} ·
     último mês consolidado do SIH: {M.ultima_competencia_consolidada}.</p>
 

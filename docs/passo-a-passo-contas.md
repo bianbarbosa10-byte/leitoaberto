@@ -58,7 +58,7 @@ Para rodar localmente com a nuvem, preencha os mesmos valores no arquivo `.env` 
 ## 5. Primeira execução
 
 *Actions → Pipeline mensal → Run workflow*. A primeira carga leva ~15 a 20 minutos. Depois disso o
-agendamento cuida de tudo todo dia 10.
+agendamento cuida de tudo todo dia 25 (recarregando os últimos 6 meses).
 
 Opção mais rápida: rodar a primeira carga no seu computador, com o `.env` preenchido
 (`.venv\Scripts\python -m pipeline.run --forcar`), que envia para o R2 e o Neon o que já está em `data/`.

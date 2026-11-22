@@ -117,7 +117,12 @@ def dbc_para_parquet(fonte, nome, raw: bytes, comp, modif):
 
 
 def ingerir_datasus(man, so=None, forcar=False):
-    novos = []
+    """Baixa o que e novo/mudou no FTP e, uma vez por mes, recarrega a janela das ultimas C.JANELA_MESES
+    competencias de cada fonte. A janela do mes so e marcada como feita se nenhuma fonte/arquivo falhou,
+    assim as repeticoes agendadas (dias 26-28) refazem a recarga se o FTP caiu no dia 25."""
+    novos, falhou = [], False
+    mes_atual = datetime.now(timezone.utc).strftime("%Y-%m")
+    recarregar = C.JANELA_MESES > 0 and man.get("janela_mes") != mes_atual
     for fonte, (diretorio, prefixo) in C.FONTES.items():
         if so and fonte not in so:
             continue
@@ -126,18 +131,24 @@ def ingerir_datasus(man, so=None, forcar=False):
         except Exception as e:  # FTP fora do ar: segue com as outras fontes; o agendamento tenta de novo amanha
             print(f"{fonte}: AVISO - FTP nao respondeu ({e.__class__.__name__}); fonte pulada nesta execucao", flush=True)
             man.setdefault("falhas", {})[fonte] = AGORA()
+            falhou = True
             continue
-        print(f"{fonte}: {len(remotos)} arquivos no FTP desde {C.INICIO}", flush=True)
+        janela = set(sorted({c for _, _, c in remotos.values()})[-C.JANELA_MESES:]) if recarregar else set()
+        print(f"{fonte}: {len(remotos)} arquivos no FTP desde {C.INICIO}"
+              + (f" | recarga da janela {min(janela)} a {max(janela)}" if janela else ""), flush=True)
         for nome, (tam, modif, comp) in sorted(remotos.items()):
             atual = man["arquivos"].get(nome)
             parquet = C.BRONZE / "datasus" / fonte / nome.replace(".DBC", ".parquet")
-            if not forcar and atual and atual["tamanho"] == tam and atual["modificado"] == modif and parquet.exists():
+            na_janela = comp in janela
+            if (not forcar and not na_janela and atual and atual["tamanho"] == tam and atual["modificado"] == modif
+                    and parquet.exists()):
                 continue
             t0 = time.time()
             try:
                 raw = baixar_ftp(diretorio, nome)
             except Exception as e:
                 print(f"  {nome}: AVISO - download falhou ({e.__class__.__name__}); fica para a proxima execucao", flush=True)
+                falhou = True
                 continue
             bruto = C.BRONZE / "datasus" / fonte / "raw" / nome
             bruto.parent.mkdir(parents=True, exist_ok=True)
@@ -145,12 +156,20 @@ def ingerir_datasus(man, so=None, forcar=False):
             destino, linhas = dbc_para_parquet(fonte, nome, raw, comp, modif)
             storage.enviar(bruto)
             storage.enviar(destino)
-            motivo = "novo" if not atual else "atualizado no FTP"
+            if not atual:
+                motivo = "novo"
+            elif atual["tamanho"] != tam or atual["modificado"] != modif:
+                motivo = "atualizado no FTP"
+            else:
+                motivo = "recarga da janela" if na_janela else "rebaixado"
             man["arquivos"][nome] = dict(fonte=fonte, competencia=comp, tamanho=tam, modificado=modif,
                                          linhas=linhas, ingerido_em=AGORA())
             gravar_manifesto(man)  # grava a cada arquivo: se cair no meio, a proxima execucao continua dali
             novos.append(nome)
             print(f"  {nome:14s} {linhas:>8,} linhas  {motivo:18s} {time.time() - t0:5.1f}s", flush=True)
+    if recarregar and not falhou and not so:
+        man["janela_mes"] = mes_atual
+        print(f"janela dos ultimos {C.JANELA_MESES} meses recarregada ({mes_atual})", flush=True)
     return novos
 
 

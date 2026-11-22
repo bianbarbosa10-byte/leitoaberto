@@ -27,8 +27,10 @@ BRONZE, SILVER, GOLD = DATA / "bronze", DATA / "silver", DATA / "gold"
 UF = "ES"
 COD_UF = "32"
 INICIO = os.environ.get("LA_INICIO", "2024-01")  # primeira competencia (AAAA-MM) carregada
-# Nao ha janela fixa de reprocessamento: todo arquivo cujo tamanho/data mudou no FTP e baixado de novo
-# (o DATASUS republica competencias antigas do SIH quando chegam AIH atrasadas).
+# Janela de recarga: a cada mes as ultimas N competencias de cada fonte sao baixadas de novo, mesmo sem
+# mudanca aparente no FTP (o SIH continua recebendo AIH atrasadas desses meses). Fora da janela, so baixa
+# arquivo novo ou cujo tamanho/data mudou no FTP.
+JANELA_MESES = int(os.environ.get("LA_JANELA_MESES", "6"))
 
 # ---------- fontes DATASUS (FTP publico) ----------
 FTP_HOST = "ftp.datasus.gov.br"

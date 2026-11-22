@@ -1,12 +1,13 @@
 # LeitoAberto - atualizacao mensal automatica (DATASUS -> Bronze -> Silver -> Gold -> Neon -> site)
 #
-# Roda todo dia 10 as 06:00 (Brasilia) e tenta de novo nos dias 11 a 15: o DATASUS costuma atrasar a
-# publicacao. Cada execucao so processa se algum arquivo mudou no FTP (senao termina em ~1 min).
+# Roda todo dia 25 as 06:00 (Brasilia) e recarrega as ultimas 6 competencias de cada fonte (o SIH ainda
+# recebe AIH atrasadas desses meses). Os dias 26 a 28 sao repeticao de seguranca: so refazem a recarga se a
+# do dia 25 falhou (FTP fora do ar); senao processam apenas arquivo novo/alterado ou terminam em ~1 min.
 name: Pipeline mensal
 
 on:
   schedule:
-    - cron: "0 9 10-15 * *"   # 09:00 UTC = 06:00 BRT, dias 10 a 15 de cada mes
+    - cron: "0 9 25-28 * *"   # 09:00 UTC = 06:00 BRT, dias 25 a 28 de cada mes
   workflow_dispatch:
     inputs:
       forcar:

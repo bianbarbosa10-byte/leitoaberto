@@ -8,7 +8,7 @@ e publica tudo em um site estático e em um banco PostgreSQL para o Power BI. Cu
 
 ```
 DATASUS FTP (SIH-RD, CNES LT/EQ/SR/ST) ─┐
-IBGE (SIDRA 6579, localidades, malha) ──┼─► GitHub Actions (todo dia 10, 06:00 BRT; repete 11–15)
+IBGE (SIDRA 6579, localidades, malha) ──┼─► GitHub Actions (todo dia 25, 06:00 BRT; repete 26–28)
 API dados abertos CNES ─────────────────┘            │
                                                      ▼
    BRONZE  .dbc original + Parquet (texto)      ┐
@@ -69,10 +69,11 @@ A primeira carga (desde jan/2024, ~170 arquivos) leva ~15 minutos; as seguintes 
 
 ## Atualização automática
 
-O workflow roda no dia 10 de cada mês e repete nos dias 11 a 15 (o DATASUS costuma atrasar). O manifesto da
-Bronze guarda tamanho e data de cada arquivo do FTP: só arquivos novos **ou republicados** são baixados
-(o DATASUS republica competências antigas do SIH quando chegam AIH atrasadas). Sem novidade, a execução
-termina em segundos e o site não é reconstruído. Também é possível rodar manualmente em *Actions → Pipeline
+O workflow roda no dia 25 de cada mês e **recarrega as últimas 6 competências** de cada fonte do DATASUS,
+mesmo sem mudança aparente no FTP: o SIH continua recebendo AIH atrasadas desses meses. Fora dessa janela,
+o manifesto da Bronze (tamanho e data de cada arquivo) faz só os arquivos novos **ou republicados** serem
+baixados. Os dias 26 a 28 são repetição de segurança: refazem a recarga só se a do dia 25 falhou (FTP fora
+do ar); senão terminam em segundos sem reconstruir o site. A janela é configurável por `LA_JANELA_MESES`. Também é possível rodar manualmente em *Actions → Pipeline
 mensal → Run workflow*.
 
 ## Validação
